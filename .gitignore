@@ -40,8 +40,10 @@ yarn-error.log*
 # claude code session data
 .claude/
 
-# print server — ngrok.yml contains auth token, never commit it
-print-server/ngrok.yml
+# print server — cloudflared.yml contains tunnel credentials, never commit it
+print-server/cloudflared.yml
+# cloudflared credential files
+*.cloudflared.json
 
 # typescript
 *.tsbuildinfo
