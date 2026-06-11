@@ -28,7 +28,7 @@ function OrderLine({ line, onQty, onRemove, onEdit }) {
   );
 }
 
-export function OrderSummary({ cust, setCust, lines, total, editingOrderNo, onQty, onRemove, onEditLine, onPlace, onCancelEdit, mobileOpen, onCloseMobile }) {
+export function OrderSummary({ cust, setCust, lines, total, editingOrderNo, onQty, onRemove, onEditLine, onPlace, onCancelEdit, mobileOpen, onCloseMobile, nameError, onClearNameError }) {
   return (
     <aside className={"order-col" + (mobileOpen ? " open" : "")}>
       <div className="order-head">
@@ -51,8 +51,14 @@ export function OrderSummary({ cust, setCust, lines, total, editingOrderNo, onQt
         )}
         <div className="cust-fields">
           <div className="field">
-            <label>Customer Name</label>
-            <input value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} placeholder="Name for the order" />
+            <label>Customer Name <span className="field-required">*</span></label>
+            <input
+              value={cust.name}
+              onChange={(e) => { setCust({ ...cust, name: e.target.value }); if (nameError) onClearNameError(); }}
+              placeholder="Name for the order"
+              className={nameError ? 'input-error' : ''}
+            />
+            {nameError && <span className="field-error-msg">Name is required</span>}
           </div>
           <div className="field">
             <label>Phone Number</label>
@@ -91,7 +97,7 @@ export function OrderSummary({ cust, setCust, lines, total, editingOrderNo, onQt
   );
 }
 
-export function TicketModal({ order, onClose }) {
+export function TicketModal({ order, onClose, onNewOrder }) {
   const stamp = new Date(order.ts).toLocaleString(undefined, {
     month: "short", day: "numeric", year: "numeric",
     hour: "numeric", minute: "2-digit",
@@ -131,7 +137,7 @@ export function TicketModal({ order, onClose }) {
         </div>
         <div className="ticket-foot">
           <button className="btn-ghost" onClick={onClose}><Icon.back /> Back</button>
-          <button className="btn-primary" onClick={() => window.print()}><Icon.print /> Print</button>
+          <button className="btn-primary" onClick={onNewOrder}><Icon.plus /> New Order</button>
         </div>
       </div>
     </div>

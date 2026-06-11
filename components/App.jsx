@@ -56,6 +56,7 @@ export default function App() {
   const [showPlaced, setShowPlaced] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [toast, setToast] = useState(null);
+  const [nameError, setNameError] = useState(false);
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
 
   const menuPanelRef = useRef(null);
@@ -70,9 +71,9 @@ export default function App() {
     "--card-min": (t.cardWidth || 260) + "px",
   };
 
-  const flashToast = (msg) => {
-    setToast({ msg, id: Date.now() });
-    setTimeout(() => setToast(null), 1500);
+  const flashToast = (msg, isError = false) => {
+    setToast({ msg, id: Date.now(), isError });
+    setTimeout(() => setToast(null), isError ? 3500 : 1500);
   };
 
   const openNew = (item) => setModalItem({ item, custom: defaultCustom(item), lineUid: null });
@@ -96,29 +97,56 @@ export default function App() {
 
   const placeOrder = () => {
     if (lines.length === 0) return;
+    if (!cust.name.trim()) {
+      setNameError(true);
+      flashToast('Customer name is required', true);
+      return;
+    }
+    setNameError(false);
+    let order;
     if (editingOrderNo) {
-      const updated = { orderNo: editingOrderNo, cust, lines, total, ts: Date.now() };
-      setOrders((os) => os.map((o) => o.orderNo === editingOrderNo ? updated : o));
-      setTicket(updated);
+      order = { orderNo: editingOrderNo, cust, lines, total, ts: Date.now() };
+      setOrders((os) => os.map((o) => o.orderNo === editingOrderNo ? order : o));
+      setTicket(order);
       setEditingOrderNo(null);
     } else {
       const orderNo = "#" + String(seq).padStart(3, "0");
-      const order = { orderNo, cust, lines, total, ts: Date.now() };
+      order = { orderNo, cust, lines, total, ts: Date.now() };
       setOrders((os) => [...os, order]);
       setSeq((s) => s + 1);
       setTicket(order);
     }
     setMobileOpen(false);
+
+    // Non-blocking — order is already saved; print failure does not roll it back
+    fetch('/api/print-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          flashToast('Ticket printed');
+        } else {
+          flashToast(`Print failed: ${data.error ?? 'Unknown error'}`, true);
+        }
+      })
+      .catch((err) => {
+        flashToast(`Print error: ${err.message}`, true);
+      });
   };
 
   const startNewOrder = () => {
     setLines([]); setCust({ name: "", phone: "" }); setEditingOrderNo(null); setTicket(null);
+    setNameError(false);
   };
 
   const recallOrder = (o) => {
     setLines(o.lines.map((l) => ({ ...l, uid: UID++ })));
     setCust({ ...o.cust });
     setEditingOrderNo(o.orderNo);
+    setNameError(false);
     setShowPlaced(false);
     setMobileOpen(true);
   };
@@ -171,6 +199,7 @@ export default function App() {
           onQty={changeQty} onRemove={removeLine} onEditLine={openEdit}
           onPlace={placeOrder} onCancelEdit={() => { setEditingOrderNo(null); startNewOrder(); }}
           mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)}
+          nameError={nameError} onClearNameError={() => setNameError(false)}
         />
       </div>
 
@@ -193,7 +222,7 @@ export default function App() {
           onSave={saveLine}
         />
       )}
-      {ticket && <TicketModal order={ticket} onClose={() => setTicket(null)} />}
+      {ticket && <TicketModal order={ticket} onClose={() => setTicket(null)} onNewOrder={startNewOrder} />}
       {showPlaced && (
         <PlacedOrders
           orders={orders}
@@ -204,8 +233,8 @@ export default function App() {
       )}
 
       {toast && (
-        <div className="add-toast" key={toast.id}>
-          <Icon.check /> {toast.msg}
+        <div className={`add-toast${toast.isError ? ' toast-error' : ''}`} key={toast.id}>
+          {toast.isError ? <Icon.x /> : <Icon.check />} {toast.msg}
         </div>
       )}
 

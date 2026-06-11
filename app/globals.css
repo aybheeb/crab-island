@@ -366,6 +366,10 @@ input, textarea { font-family: inherit; }
 }
 .field input::placeholder { color: var(--slate-light); font-weight: 600; }
 .field input:focus { outline: none; border-color: var(--ocean); background: var(--white); box-shadow: 0 0 0 4px var(--ocean-soft); }
+.field input.input-error { border-color: var(--red); background: var(--red-soft); }
+.field input.input-error:focus { border-color: var(--red); box-shadow: 0 0 0 4px rgba(216,30,36,.15); }
+.field-required { color: var(--red); }
+.field-error-msg { font-size: .72rem; font-weight: 800; color: var(--red); margin-top: 3px; }
 
 .edit-banner {
   background: var(--gold-soft);
@@ -732,6 +736,10 @@ input, textarea { font-family: inherit; }
   display: flex; align-items: center; gap: 10px;
   animation: addFlash 1.6s ease forwards;
   pointer-events: none;
+}
+.add-toast.toast-error {
+  background: var(--red);
+  animation-duration: 3.6s;
 }
 
 /* ============================================================
