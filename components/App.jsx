@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { CATEGORIES, defaultCustom, unitPriceFor, money } from './data';
 import { Icon, MenuPanel, CustomModal, CATEGORY_META } from './Menu';
 import { OrderSummary, TicketModal, PlacedOrders } from './Order';
+import PaymentModal from './PaymentModal';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSlider, TweakToggle } from './TweaksPanel';
 
 const TWEAK_DEFAULTS = {
@@ -53,6 +54,7 @@ export default function App() {
 
   const [modalItem, setModalItem] = useState(null);
   const [ticket, setTicket] = useState(null);
+  const [paymentOrder, setPaymentOrder] = useState(null);
   const [showPlaced, setShowPlaced] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [toast, setToast] = useState(null);
@@ -107,34 +109,51 @@ export default function App() {
     if (editingOrderNo) {
       order = { orderNo: editingOrderNo, cust, lines, total, ts: Date.now() };
       setOrders((os) => os.map((o) => o.orderNo === editingOrderNo ? order : o));
-      setTicket(order);
       setEditingOrderNo(null);
     } else {
-      const orderNo = "#" + String(seq).padStart(3, "0");
+      const orderNo = '#' + String(seq).padStart(3, '0');
       order = { orderNo, cust, lines, total, ts: Date.now() };
       setOrders((os) => [...os, order]);
       setSeq((s) => s + 1);
-      setTicket(order);
     }
     setMobileOpen(false);
+    setPaymentOrder(order);
+  };
 
-    // Non-blocking — order is already saved; print failure does not roll it back
-    fetch('/api/print-ticket', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(order),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          flashToast('Ticket printed');
-        } else {
-          flashToast(`Print failed: ${data.error ?? 'Unknown error'}`, true);
-        }
+  const handlePaymentConfirm = ({ kickDrawer, payMethod, changeDue }) => {
+    const order = { ...paymentOrder, payMethod, changeDue };
+    setPaymentOrder(null);
+    setTicket(order);
+
+    const printTicket = () =>
+      fetch('/api/print-ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order),
       })
-      .catch((err) => {
-        flashToast(`Print error: ${err.message}`, true);
-      });
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) flashToast('Ticket printed');
+          else flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
+        })
+        .catch((err) => flashToast(`Print error: ${err.message}`, true));
+
+    if (kickDrawer) {
+      fetch('/api/open-drawer', { method: 'POST' })
+        .then((r) => r.json())
+        .then((d) => { if (!d.success) flashToast('Drawer did not open', true); })
+        .catch(() => flashToast('Drawer error', true))
+        .finally(printTicket);
+    } else {
+      printTicket();
+    }
+  };
+
+  const openDrawer = () => {
+    fetch('/api/open-drawer', { method: 'POST' })
+      .then((r) => r.json())
+      .then((d) => { if (!d.success) flashToast('Drawer did not open', true); })
+      .catch(() => flashToast('Drawer error', true));
   };
 
   const startNewOrder = () => {
@@ -162,6 +181,9 @@ export default function App() {
           <span className="hdr-slogan">You buy it, we steam it or fry it.</span>
           <div className="hdr-spacer" />
           <div className="hdr-actions">
+            <button className="hdr-btn" onClick={openDrawer}>
+              Open Drawer
+            </button>
             <button className="hdr-btn" onClick={() => setShowPlaced(true)}>
               <Icon.receipt /> Orders {orders.length > 0 && <span className="pill-count">{orders.length}</span>}
             </button>
@@ -220,6 +242,13 @@ export default function App() {
           editingLineId={modalItem.lineUid}
           onClose={() => setModalItem(null)}
           onSave={saveLine}
+        />
+      )}
+      {paymentOrder && (
+        <PaymentModal
+          order={paymentOrder}
+          onConfirm={handlePaymentConfirm}
+          onCancel={() => setPaymentOrder(null)}
         />
       )}
       {ticket && <TicketModal order={ticket} onClose={() => setTicket(null)} onNewOrder={startNewOrder} />}

@@ -132,6 +132,17 @@ export function TicketModal({ order, onClose, onNewOrder }) {
             ))}
             <hr className="ticket-divider" />
             <div className="ticket-total"><span>TOTAL</span><span className="tt-v">{money(order.total)}</span></div>
+            {order.payMethod && (
+              <div className="ticket-pay-info">
+                <div className="ticket-pay-method">{order.payMethod}</div>
+                {order.changeDue != null && (
+                  <div className="ticket-change">
+                    <span>Change Due</span>
+                    <span className="ticket-change-amt">{money(order.changeDue)}</span>
+                  </div>
+                )}
+              </div>
+            )}
             <p className="ticket-thanks">Thank you — enjoy! 🦐</p>
           </div>
         </div>

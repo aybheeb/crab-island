@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import express from 'express';
-import { printTicket } from '../server/services/printService.js';
+import { printTicket, openCashDrawer } from '../server/services/printService.js';
 
 // Load root .env.local so PRINT_API_KEY and PORT are available without shell gymnastics
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +42,16 @@ app.post('/print', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(`[print-server] Print failed for ORDER ${order.orderNo}:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/open-drawer', async (_req, res) => {
+  try {
+    await openCashDrawer();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[print-server] Drawer kick failed:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

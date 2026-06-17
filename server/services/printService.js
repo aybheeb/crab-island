@@ -21,6 +21,8 @@ const GS_TALL      = () => Buffer.from([GS,  0x21, 0x10]); // GS ! 2x height, 1x
 const GS_NORMAL    = () => Buffer.from([GS,  0x21, 0x00]);
 const FEED         = (n = 1) => Buffer.from([ESC, 0x64, n]);
 const CUT          = () => Buffer.from([GS,  0x56, 0x41, 0x05]);
+// ESC p 0 t1 t2 — Generate Pulse on DK1 pin; t1=ON time (×2ms), t2=OFF time (×2ms)
+const DRAWER_KICK  = () => Buffer.from([ESC, 0x70, 0x00, 0x19, 0xfa]);
 
 // Replace Unicode chars (e.g. ½, ×) that won't survive ASCII encoding
 function sanitize(str) {
@@ -256,6 +258,21 @@ const PRINTER_NAMES = [
   'EPSON TM-T20 Receipt', // exact Windows printer name on this machine
   'EPSON TM-T20',         // fallback variant
 ];
+
+export async function openCashDrawer() {
+  let lastErr;
+  for (const name of PRINTER_NAMES) {
+    try {
+      sendRawToPrinter(name, DRAWER_KICK());
+      console.log(`[printService] Cash drawer opened via "${name}"`);
+      return;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[printService] Drawer kick failed with "${name}": ${err.message}`);
+    }
+  }
+  throw new Error(`Drawer kick failed on all printer names. Last: ${lastErr.message}`);
+}
 
 export async function printTicket(order) {
   // Kitchen ticket first, customer receipt second — printer cuts between them

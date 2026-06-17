@@ -656,6 +656,37 @@ input, textarea { font-family: inherit; }
 .ticket-total .tt-v { color: var(--red); }
 .ticket-thanks { text-align: center; font-family: var(--font-display); font-weight: 700; color: var(--slate); margin-top: 16px; font-size: .9rem; }
 
+.ticket-pay-info {
+  margin-top: 10px;
+  background: var(--ocean-soft);
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ticket-pay-method {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: .95rem;
+  color: var(--ocean-deep);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.ticket-change {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.ticket-change span { font-weight: 700; color: var(--slate); font-size: .9rem; }
+.ticket-change-amt {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.6rem;
+  color: var(--ok);
+  font-variant-numeric: tabular-nums;
+}
+
 .ticket-foot { flex: 0 0 auto; border-top: 1px solid var(--line); padding: 14px 20px; display: flex; gap: 10px; background: var(--white); }
 .btn-ghost {
   flex: 1; border: 2px solid var(--line); background: var(--white); color: var(--navy);
@@ -741,6 +772,191 @@ input, textarea { font-family: inherit; }
   background: var(--red);
   animation-duration: 3.6s;
 }
+
+/* ============================================================
+   Payment modal
+   ============================================================ */
+.pay-modal { max-width: 480px; }
+
+.pay-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 14px 0;
+  border-bottom: 2px solid var(--line);
+  margin-bottom: 18px;
+  font-weight: 700;
+  color: var(--slate);
+}
+.pay-total-amt {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.2rem;
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-prompt {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--navy);
+  margin: 18px 0 12px;
+}
+
+.pay-methods {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.pay-methods-2 { grid-template-columns: repeat(2, 1fr); }
+
+.pay-method-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 10px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  border-radius: var(--r-md);
+  min-height: 80px;
+  transition: all .12s;
+}
+.pay-method-btn:hover { border-color: var(--ocean); background: var(--ocean-soft); }
+.pay-method-label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3rem;
+  color: var(--navy);
+}
+.pay-method-btn:hover .pay-method-label { color: var(--ocean-deep); }
+
+.pay-terminal-note {
+  background: var(--ocean-soft);
+  border: 1.5px solid var(--ocean);
+  color: var(--ocean-deep);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  font-weight: 800;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.pay-amount-display,
+.pay-tendered-display,
+.pay-change-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.pay-amount-display { border-bottom: 2px solid var(--line); }
+.pay-change-display { border-bottom: none; }
+
+.pad-label { font-weight: 700; color: var(--slate); font-size: .95rem; }
+.pad-value {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.8rem;
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+.pad-tendered {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.2rem;
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+.pad-change {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.2rem;
+  color: var(--ok);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+.pay-numpad-key {
+  border: 2px solid var(--line);
+  background: var(--white);
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.5rem;
+  border-radius: var(--r-md);
+  min-height: 64px;
+  display: grid;
+  place-items: center;
+  transition: background .08s, border-color .08s;
+}
+.pay-numpad-key:hover { border-color: var(--ocean); background: var(--foam); }
+.pay-numpad-key:active { background: var(--ocean-soft); transform: translateY(1px); }
+.pay-numpad-back { background: var(--sand); border-color: var(--line-strong); }
+.pay-numpad-back:hover { background: var(--red-soft); border-color: var(--red); color: var(--red); }
+
+.pay-split-block {
+  background: var(--paper);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pay-split-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  color: var(--slate);
+}
+.pay-split-ebt {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--ocean-deep);
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+.pay-split-total {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--navy);
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.pay-fee-adj { display: flex; align-items: center; gap: 10px; }
+.pay-fee-val {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--red);
+  font-size: 1.1rem;
+  min-width: 52px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.fee-adj-btn {
+  width: 32px; height: 32px;
+  border: 2px solid var(--line);
+  background: var(--white);
+  border-radius: var(--r-pill);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--ocean-deep);
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+.fee-adj-btn:hover { border-color: var(--ocean); background: var(--foam); }
 
 /* ============================================================
    Print — 80mm thermal receipt
