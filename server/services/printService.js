@@ -106,9 +106,9 @@ function buildKitchenTicketBytes(order) {
   return Buffer.concat(parts);
 }
 
-// ── Customer receipt ─────────────────────────────────────────────────────────
+// ── Cashier receipt (merchant / customer copy) ──────────────────────────────
 
-function buildCustomerReceiptBytes(order) {
+function buildReceiptBytes(order, copyLabel) {
   const { orderNo, cust, lines, total, ts } = order;
   const stamp = new Date(ts).toLocaleString('en-US', {
     month: '2-digit', day: '2-digit', year: 'numeric',
@@ -126,6 +126,9 @@ function buildCustomerReceiptBytes(order) {
     NORMAL_SIZE(),
     BOLD_OFF(),
     row('You buy it, we steam it or fry it.'),
+    BOLD_ON(),
+    row(`*** ${copyLabel} ***`),
+    BOLD_OFF(),
     divider(),
 
     // Order info
@@ -254,44 +257,55 @@ function sendRawToPrinter(printerName, dataBuffer) {
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
-const PRINTER_NAMES = [
+// Kitchen printer — fires the kitchen ticket only.
+const KITCHEN_PRINTER_NAMES = [
   'EPSON TM-T20 Receipt', // exact Windows printer name on this machine
   'EPSON TM-T20',         // fallback variant
 ];
 
-export async function openCashDrawer() {
+// Cashier printer — fires merchant/customer receipt copies and the cash drawer kick.
+const CASHIER_PRINTER_NAMES = [
+  'Star TSP650II Cutter (TSP654II)', // exact Windows printer name on this machine
+];
+
+function sendToFirstAvailable(names, bytes, jobLabel) {
   let lastErr;
-  for (const name of PRINTER_NAMES) {
+  for (const name of names) {
     try {
-      sendRawToPrinter(name, DRAWER_KICK());
-      console.log(`[printService] Cash drawer opened via "${name}"`);
+      sendRawToPrinter(name, bytes);
+      console.log(`[printService] ${jobLabel} printed via "${name}"`);
       return;
     } catch (err) {
       lastErr = err;
-      console.warn(`[printService] Drawer kick failed with "${name}": ${err.message}`);
+      console.warn(`[printService] ${jobLabel} failed with "${name}": ${err.message}`);
     }
   }
-  throw new Error(`Drawer kick failed on all printer names. Last: ${lastErr.message}`);
+  throw new Error(`${jobLabel} failed on all printer names. Last: ${lastErr.message}`);
+}
+
+export async function openCashDrawer() {
+  sendToFirstAvailable(CASHIER_PRINTER_NAMES, DRAWER_KICK(), 'Cash drawer kick');
 }
 
 export async function printTicket(order) {
-  // Kitchen ticket first, customer receipt second — printer cuts between them
-  const bytes = Buffer.concat([
-    buildKitchenTicketBytes(order),
-    buildCustomerReceiptBytes(order),
-  ]);
-  let lastErr;
+  const errors = [];
 
-  for (const name of PRINTER_NAMES) {
-    try {
-      sendRawToPrinter(name, bytes);
-      console.log(`[printService] Kitchen + receipt printed via "${name}"`);
-      return;
-    } catch (err) {
-      lastErr = err;
-      console.warn(`[printService] Failed with "${name}": ${err.message}`);
-    }
+  try {
+    sendToFirstAvailable(KITCHEN_PRINTER_NAMES, buildKitchenTicketBytes(order), 'Kitchen ticket');
+  } catch (err) {
+    errors.push(err.message);
   }
 
-  throw new Error(`Print failed on all printer names. Last: ${lastErr.message}`);
+  try {
+    // Merchant copy first, customer copy second — printer cuts between them
+    const cashierBytes = Buffer.concat([
+      buildReceiptBytes(order, 'MERCHANT COPY'),
+      buildReceiptBytes(order, 'CUSTOMER COPY'),
+    ]);
+    sendToFirstAvailable(CASHIER_PRINTER_NAMES, cashierBytes, 'Cashier receipts');
+  } catch (err) {
+    errors.push(err.message);
+  }
+
+  if (errors.length > 0) throw new Error(errors.join(' | '));
 }

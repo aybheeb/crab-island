@@ -147,6 +147,16 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
   const set = (patch) => setC((prev) => ({ ...prev, ...patch }));
   const unit  = unitPriceFor(item, c);
   const total = unit * c.qty;
+  const activeSizes = c.noCombo && item.noCombo ? item.noCombo.sizes : item.sizes;
+
+  const toggleNoCombo = () => {
+    const next = !c.noCombo;
+    const sizesForNext = next && item.noCombo ? item.noCombo.sizes : item.sizes;
+    const size = sizesForNext
+      ? (sizesForNext.find((s) => s.label === c.size)?.label || sizesForNext[0].label)
+      : c.size;
+    set({ noCombo: next, size, fries: false });
+  };
 
   const Seg = ({ options, value, onChange, variant }) => (
     <div className={"seg" + (variant ? " " + variant : "")}>
@@ -171,10 +181,10 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
         </div>
 
         <div className="modal-body scroll">
-          {item.sizes && (
+          {activeSizes && (
             <div className="opt-group">
               <p className="opt-label">Size</p>
-              <Seg options={item.sizes.map((s) => s.label)} value={c.size} onChange={(v) => set({ size: v })} />
+              <Seg options={activeSizes.map((s) => s.label)} value={c.size} onChange={(v) => set({ size: v })} />
             </div>
           )}
 
@@ -230,7 +240,15 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
             </>
           )}
 
-          {item.platter && !item.bowl && (
+          {item.noCombo && item.platter && !item.bowl && (
+            <div className="opt-group">
+              <button type="button" className={"fries-toggle" + (c.noCombo ? " on" : "")} onClick={toggleNoCombo}>
+                {c.noCombo ? "✓ No Sides — à la carte price" : "🚫 No Sides (skip veggies/fries)"}
+              </button>
+            </div>
+          )}
+
+          {item.platter && !item.bowl && !c.noCombo && (
             <div className="opt-group">
               <p className="opt-label">Sides <span className="req">comes with 3</span></p>
               <div
@@ -273,7 +291,7 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
         <div className="modal-foot">
           <div className="mf-price">
             <span className="ml">Line total</span>
-            {item.marketPrice ? <span style={{ fontSize: "1rem", color: "var(--gold-deep)" }}>Market Price</span> : money(total)}
+            {item.marketPrice && !c.noCombo ? <span style={{ fontSize: "1rem", color: "var(--gold-deep)" }}>Market Price</span> : money(total)}
           </div>
           <button className="btn-primary" onClick={() => onSave(item, c)}>
             <Icon.check /> {editingLineId ? "Update Item" : "Add to Order"}

@@ -2,19 +2,19 @@ export const CATEGORIES = ["Seafood Platters", "Combination Platters", "Rice Bow
 
 export const MENU = [
   // ── Seafood Platters ──────────────────────────────────────────
-  { id: "1",  num: "#1",  name: "Large Shrimp",    desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 16.99 }, { label: "1 lb.", price: 28.99 }] },
-  { id: "2",  num: "#2",  name: "Jumbo Shrimp",    desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: false, sizes: [{ label: "½ lb.", price: 18.99 }, { label: "1 lb.", price: 30.99 }] },
-  { id: "3",  num: "#3",  name: "Snow Crab (1 lb.)", desc: "",            category: "Seafood Platters",    platter: true,  cooking: false, price: 38.99,  sizes: null },
-  { id: "4",  num: "#4",  name: "King Crab",       desc: "Ask for today's rate",   category: "Seafood Platters",    platter: true,  cooking: false, marketPrice: true, sizes: null },
-  { id: "5",  num: "#5",  name: "Tilapia",         desc: "½ lb. or 1 lb. fillet",  category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 10.99 }, { label: "1 lb.", price: 17.99 }] },
-  { id: "6",  num: "#6",  name: "Ocean Perch",     desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 12.99 }, { label: "1 lb.", price: 18.99 }] },
-  { id: "7",  num: "#7",  name: "Cat Fish",        desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 13.99 }, { label: "1 lb.", price: 19.99 }] },
-  { id: "8",  num: "#8",  name: "Whiting",         desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 10.99 }, { label: "1 lb.", price: 17.99 }] },
-  { id: "9",  num: "#9",  name: "Salmon",          desc: "½ lb. or 1 lb. fillet",  category: "Seafood Platters",    platter: true,  cooking: false, sizes: [{ label: "½ lb.", price: 17.99 }, { label: "1 lb.", price: 24.99 }] },
-  { id: "10", num: "#10", name: "Walleye",         desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 15.99 }, { label: "1 lb.", price: 22.99 }] },
-  { id: "11", num: "#11", name: "Scallops",        desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: false, sizes: [{ label: "½ lb.", price: 21.99 }, { label: "1 lb.", price: 40.99 }] },
-  { id: "12", num: "#12", name: "Mussels (1 lb.)",  desc: "",                       category: "Seafood Platters",    platter: true,  cooking: false, price: 15.99,  sizes: null },
-  { id: "13", num: "#13", name: "Crawfish (1 lb.)", desc: "",                       category: "Seafood Platters",    platter: true,  cooking: false, price: 17.99,  sizes: null },
+  { id: "1",  num: "#1",  name: "Large Shrimp",    desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 16.99 }, { label: "1 lb.", price: 28.99 }], noCombo: { sizes: [{ label: "½ lb.", price: 12.99 }, { label: "1 lb.", price: 22.99 }] } },
+  { id: "2",  num: "#2",  name: "Jumbo Shrimp",    desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: false, sizes: [{ label: "½ lb.", price: 18.99 }, { label: "1 lb.", price: 30.99 }], noCombo: { sizes: [{ label: "½ lb.", price: 14.99 }, { label: "1 lb.", price: 26.00 }] } },
+  { id: "3",  num: "#3",  name: "Snow Crab (1 lb.)", desc: "",            category: "Seafood Platters",    platter: true,  cooking: false, price: 38.99,  sizes: null, noCombo: { sizes: [{ label: "½ lb.", price: 17.99 }, { label: "1 lb.", price: 32.99 }] } },
+  { id: "4",  num: "#4",  name: "King Crab",       desc: "Ask for today's rate",   category: "Seafood Platters",    platter: true,  cooking: false, marketPrice: true, sizes: null, noCombo: { sizes: [{ label: "½ lb.", price: 27.99 }, { label: "1 lb.", price: 54.99 }] } },
+  { id: "5",  num: "#5",  name: "Tilapia",         desc: "½ lb. or 1 lb. fillet",  category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 10.99 }, { label: "1 lb.", price: 17.99 }], noCombo: { sizes: [{ label: "½ lb.", price: 8.00 }, { label: "1 lb.", price: 13.99 }] } },
+  { id: "6",  num: "#6",  name: "Ocean Perch",     desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 12.99 }, { label: "1 lb.", price: 18.99 }], noCombo: { sizes: [{ label: "½ lb.", price: 9.00 }, { label: "1 lb.", price: 15.99 }] } },
+  { id: "7",  num: "#7",  name: "Cat Fish",        desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 13.99 }, { label: "1 lb.", price: 19.99 }], noCombo: { sizes: [{ label: "½ lb.", price: 9.50 }, { label: "1 lb.", price: 17.00 }] } },
+  { id: "8",  num: "#8",  name: "Whiting",         desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 10.99 }, { label: "1 lb.", price: 17.99 }], noCombo: { sizes: [{ label: "½ lb.", price: 7.00 }, { label: "1 lb.", price: 11.99 }] } },
+  { id: "9",  num: "#9",  name: "Salmon",          desc: "½ lb. or 1 lb. fillet",  category: "Seafood Platters",    platter: true,  cooking: false, sizes: [{ label: "½ lb.", price: 17.99 }, { label: "1 lb.", price: 24.99 }], noCombo: { sizes: [{ label: "½ lb.", price: 11.99 }, { label: "1 lb.", price: 19.99 }] } },
+  { id: "10", num: "#10", name: "Walleye",         desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: true,  sizes: [{ label: "½ lb.", price: 15.99 }, { label: "1 lb.", price: 22.99 }], noCombo: { sizes: [{ label: "½ lb.", price: 9.99 }, { label: "1 lb.", price: 17.99 }] } },
+  { id: "11", num: "#11", name: "Scallops",        desc: "½ lb. or 1 lb.",         category: "Seafood Platters",    platter: true,  cooking: false, sizes: [{ label: "½ lb.", price: 21.99 }, { label: "1 lb.", price: 40.99 }], noCombo: { sizes: [{ label: "½ lb.", price: 17.99 }, { label: "1 lb.", price: 31.99 }] } },
+  { id: "12", num: "#12", name: "Mussels (1 lb.)",  desc: "",                       category: "Seafood Platters",    platter: true,  cooking: false, price: 15.99,  sizes: null, noCombo: { sizes: [{ label: "½ lb.", price: 6.99 }, { label: "1 lb.", price: 10.99 }] } },
+  { id: "13", num: "#13", name: "Crawfish (1 lb.)", desc: "",                       category: "Seafood Platters",    platter: true,  cooking: false, price: 17.99,  sizes: null, noCombo: { sizes: [{ label: "½ lb.", price: 7.99 }, { label: "1 lb.", price: 12.99 }] } },
 
   // ── Combination Platters ──────────────────────────────────────
   { id: "14", num: "#14", name: "Seafood Combo",           desc: "Snow Crab Cluster & ½ lb. Shrimp",                                       category: "Combination Platters", platter: true, cooking: true,  price: 33.99, sizes: null },
@@ -38,16 +38,22 @@ export const MENU = [
   // ── Sides ─────────────────────────────────────────────────────
   { id: "s1",  num: null, name: "Crab Leg Cluster (×1)", desc: "",                category: "Sides", platter: false, cooking: false, price: 17.99, sizes: null },
   { id: "s2",  num: null, name: "Lobster Tail",           desc: "Small or Medium", category: "Sides", platter: false, cooking: false, sizes: [{ label: "Small", price: 15.99 }, { label: "Medium", price: 20.99 }] },
-  { id: "s3",  num: null, name: "Steamed Veggies", desc: "Fresh steamed",  category: "Sides", platter: false, cooking: false, price: 7.99,  sizes: null },
-  { id: "s4",  num: null, name: "Clams (½ lb.)",           desc: "",                category: "Sides", platter: false, cooking: false, price: 7.99,  sizes: null },
+  { id: "s3",  num: null, name: "Steamed Veggies",         desc: "Regular, Small Pan, or Large Pan", category: "Sides", platter: false, cooking: false, sizes: [{ label: "Regular", price: 7.99 }, { label: "Small Pan", price: 18.99 }, { label: "Large Pan", price: 48.99 }] },
+  { id: "s4",  num: null, name: "Clams",                   desc: "½ lb. or 1 lb.", category: "Sides", platter: false, cooking: false, sizes: [{ label: "½ lb.", price: 7.99 }, { label: "1 lb.", price: 12.99 }] },
   { id: "s5",  num: null, name: "Scallops (4 pcs)",       desc: "",                category: "Sides", platter: false, cooking: false, price: 13.99, sizes: null },
   { id: "s6",  num: null, name: "Oysters (½ dozen)",      desc: "",                category: "Sides", platter: false, cooking: false, price: 13.99, sizes: null },
   { id: "s7",  num: null, name: "Fried Calamari",         desc: "",                category: "Sides", platter: false, cooking: false, price: 13.99, sizes: null },
-  { id: "s8",  num: null, name: "Clam Strips",            desc: "",                category: "Sides", platter: false, cooking: false, price: 5.99,  sizes: null },
+  { id: "s8",  num: null, name: "Clam Strips",            desc: "",                category: "Sides", platter: false, cooking: false, price: 6.99,  sizes: null },
   { id: "s9",  num: null, name: "Turkey Sausage",         desc: "",                category: "Sides", platter: false, cooking: false, price: 6.99,  sizes: null },
-  { id: "s10", num: null, name: "Eggs (×2)",               desc: "",                category: "Sides", platter: false, cooking: false, price: 2.99,  sizes: null },
+  { id: "s10", num: null, name: "Eggs",                    desc: "×1 or ×2",        category: "Sides", platter: false, cooking: false, sizes: [{ label: "×1", price: 1.50 }, { label: "×2", price: 2.99 }] },
   { id: "s11", num: null, name: "Garlic Bread (×2 pcs)",  desc: "",                category: "Sides", platter: false, cooking: false, price: 1.99,  sizes: null },
   { id: "s12", num: null, name: "Fries",                  desc: "",                category: "Sides", platter: false, cooking: false, price: 4.99,  sizes: null },
+  { id: "s13", num: null, name: "Broccoli",                desc: "",                category: "Sides", platter: false, cooking: false, price: 4.00,  sizes: null },
+  { id: "s14", num: null, name: "Potato",                  desc: "",                category: "Sides", platter: false, cooking: false, price: 4.00,  sizes: null },
+  { id: "s15", num: null, name: "Corn (1 pc)",             desc: "",                category: "Sides", platter: false, cooking: false, price: 1.50,  sizes: null },
+  { id: "s16", num: null, name: "Cheesecake",              desc: "",                category: "Sides", platter: false, cooking: false, price: 3.99,  sizes: null },
+  { id: "s17", num: null, name: "Strawberry Cheesecake",   desc: "",                category: "Sides", platter: false, cooking: false, price: 4.99,  sizes: null },
+  { id: "s18", num: null, name: "Rice",                    desc: "Small or Large",  category: "Sides", platter: false, cooking: false, sizes: [{ label: "Small", price: 3.99 }, { label: "Large", price: 5.99 }] },
 ];
 
 export const SEASONINGS   = ["House", "Cajun", "Lemon Pepper", "No Seasoning"];
@@ -77,12 +83,18 @@ export function defaultCustom(item) {
     veg:       { Broccoli: true, Corn: true, Potatoes: true },
     bowlVeg:   item.bowl       ? "Broccoli"           : null,
     sauce:     item.bowl       ? "Island Sauce"       : null,
+    noCombo:   item.noCombo    ? false                : null,
     qty:       1,
     notes:     "",
   };
 }
 
 export function unitPriceFor(item, custom) {
+  if (custom.noCombo && item.noCombo) {
+    const sizes = item.noCombo.sizes;
+    const s = sizes.find((x) => x.label === custom.size) || sizes[0];
+    return s.price;
+  }
   if (item.marketPrice) return 0;
   let base;
   if (item.sizes) {
@@ -111,6 +123,8 @@ export function customChips(item, c) {
   if (item.bowl) {
     if (c.bowlVeg) chips.push(c.bowlVeg);
     if (c.sauce)   chips.push(c.sauce);
+  } else if (item.noCombo && c.noCombo) {
+    chips.push("No Sides");
   } else if (item.platter) {
     if (c.fries) {
       chips.push("Fries (all sides)");
