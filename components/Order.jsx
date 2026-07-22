@@ -1,6 +1,15 @@
 import { Icon } from './Menu';
 import { customChips, money } from './data';
 
+function formatPhone(value) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  const len = digits.length;
+  if (len === 0) return "";
+  if (len < 4) return `(${digits}`;
+  if (len < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 function OrderLine({ line, onQty, onRemove, onEdit }) {
   const chips = customChips(line.item, line.custom);
   return (
@@ -62,7 +71,13 @@ export function OrderSummary({ cust, setCust, lines, total, editingOrderNo, onQt
           </div>
           <div className="field">
             <label>Phone Number</label>
-            <input value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} placeholder="(000) 000-0000" inputMode="tel" />
+            <input
+              value={cust.phone}
+              onChange={(e) => setCust({ ...cust, phone: formatPhone(e.target.value) })}
+              placeholder="(000) 000-0000"
+              inputMode="tel"
+              maxLength={14}
+            />
           </div>
         </div>
       </div>
