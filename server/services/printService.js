@@ -413,8 +413,20 @@ function sendToFirstAvailable(names, bytes, jobLabel) {
   throw new Error(`${jobLabel} failed on all printer names. Last: ${lastErr.message}`);
 }
 
-export async function openCashDrawer() {
-  sendToFirstAvailable(CASHIER_PRINTER_NAMES, CASHIER_PROFILE.drawerKick(), 'Cash drawer kick');
+// TEMPORARY: variant lets us isolate which single kick command the hardware
+// actually needs, instead of always firing the shotgun combo. Remove once decided.
+const DRAWER_KICK_VARIANTS = {
+  pin2:  DRAWER_KICK_PIN2,
+  pin5:  DRAWER_KICK_PIN5,
+  star1: DRAWER_KICK_STAR_1,
+  star2: DRAWER_KICK_STAR_2,
+};
+
+export async function openCashDrawer(variant, printer) {
+  const bytes = variant ? DRAWER_KICK_VARIANTS[variant]?.() : CASHIER_PROFILE.drawerKick();
+  if (!bytes) throw new Error(`Unknown drawer kick variant: ${variant}`);
+  const names = printer === 'kitchen' ? KITCHEN_PRINTER_NAMES : CASHIER_PRINTER_NAMES;
+  sendToFirstAvailable(names, bytes, `Cash drawer kick${variant ? ` (${variant})` : ''}${printer ? ` [${printer}]` : ''}`);
 }
 
 export async function printTicket(order) {

@@ -66,9 +66,9 @@ app.post('/print-customer-receipt', async (req, res) => {
   }
 });
 
-app.post('/open-drawer', async (_req, res) => {
+app.post('/open-drawer', async (req, res) => {
   try {
-    await openCashDrawer();
+    await openCashDrawer(req.query.variant, req.query.printer);
     res.json({ success: true });
   } catch (err) {
     console.error('[print-server] Drawer kick failed:', err.message);
