@@ -114,8 +114,11 @@ export function customChips(item, c) {
   const chips = [];
   if (c.size)      chips.push(c.size);
   if (item.seasoning !== false) {
-    const seasonings = SEASONINGS.filter((s) => c.seasoning[s]);
-    if (seasonings.length) chips.push(seasonings.join(' + '));
+    const realSeasonings = SEASONINGS.filter((s) => s !== 'No Seasoning');
+    const picked = realSeasonings.filter((s) => c.seasoning[s]);
+    if (picked.length === realSeasonings.length) chips.push('All Seasoning');
+    else if (c.seasoning['No Seasoning']) chips.push('No Seasoning');
+    else if (picked.length) chips.push(picked.join(' + '));
   }
   if (c.butter)    chips.push(c.butter);
   if (c.cooking)   chips.push(c.cooking);
