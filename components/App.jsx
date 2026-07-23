@@ -149,6 +149,21 @@ export default function App() {
     }
   };
 
+  const printCustomerReceipt = () => {
+    if (!ticket) return;
+    fetch('/api/print-customer-receipt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ticket),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) flashToast('Receipt printed');
+        else flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
+      })
+      .catch((err) => flashToast(`Print error: ${err.message}`, true));
+  };
+
   const openDrawer = () => {
     fetch('/api/open-drawer', { method: 'POST' })
       .then((r) => r.json())
@@ -251,7 +266,14 @@ export default function App() {
           onCancel={() => setPaymentOrder(null)}
         />
       )}
-      {ticket && <TicketModal order={ticket} onClose={() => setTicket(null)} onNewOrder={startNewOrder} />}
+      {ticket && (
+        <TicketModal
+          order={ticket}
+          onClose={() => setTicket(null)}
+          onNewOrder={startNewOrder}
+          onPrintReceipt={printCustomerReceipt}
+        />
+      )}
       {showPlaced && (
         <PlacedOrders
           orders={orders}

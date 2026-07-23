@@ -75,7 +75,7 @@ export const FISH_TYPES = [
 export function defaultCustom(item) {
   return {
     size:      item.sizes      ? item.sizes[0].label  : null,
-    seasoning: "House",
+    seasoning: { House: true, Cajun: false, "Lemon Pepper": false, "No Seasoning": false },
     butter:    item.platter    ? "With Butter"        : null,
     cooking:   item.cooking    ? "Steamed"            : null,
     fishType:  item.fishChoice ? FISH_TYPES[0].label  : null,
@@ -113,7 +113,8 @@ export function unitPriceFor(item, custom) {
 export function customChips(item, c) {
   const chips = [];
   if (c.size)      chips.push(c.size);
-  chips.push(c.seasoning);
+  const seasonings = SEASONINGS.filter((s) => c.seasoning[s]);
+  if (seasonings.length) chips.push(seasonings.join(' + '));
   if (c.butter)    chips.push(c.butter);
   if (c.cooking)   chips.push(c.cooking);
   if (item.fishChoice && c.fishType) {

@@ -112,7 +112,7 @@ export function OrderSummary({ cust, setCust, lines, total, editingOrderNo, onQt
   );
 }
 
-export function TicketModal({ order, onClose, onNewOrder }) {
+export function TicketModal({ order, onClose, onNewOrder, onPrintReceipt }) {
   const stamp = new Date(order.ts).toLocaleString(undefined, {
     month: "short", day: "numeric", year: "numeric",
     hour: "numeric", minute: "2-digit",
@@ -163,6 +163,7 @@ export function TicketModal({ order, onClose, onNewOrder }) {
         </div>
         <div className="ticket-foot">
           <button className="btn-ghost" onClick={onClose}><Icon.back /> Back</button>
+          <button className="btn-ghost" onClick={onPrintReceipt}><Icon.print /> Print Receipt</button>
           <button className="btn-primary" onClick={onNewOrder}><Icon.plus /> New Order</button>
         </div>
       </div>
