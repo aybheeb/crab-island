@@ -133,11 +133,12 @@ export function customChips(item, c) {
     chips.push("No Sides");
   } else if (item.platter) {
     if (c.fries) {
-      chips.push("Fries (all sides)");
+      chips.push("Fries");
     } else {
       const on = VEGGIES.filter((v) => c.veg[v]);
       if (on.length === 3)     chips.push("All sides");
       else if (on.length === 0) chips.push("No sides");
+      else if (on.length === 1) chips.push(`${on[0]} Only`);
       else                      chips.push(on.join(", "));
     }
   }

@@ -95,7 +95,8 @@ app.post('/orders', (req, res) => {
 });
 
 // Read-only preview of the current (still-open) day's totals.
-app.get('/report', (_req, res) => {
+app.get('/report', (req, res) => {
+  console.log(`[print-server] Report requested from ${req.ip}`);
   res.json({ success: true, report: getCurrentReport() });
 });
 
