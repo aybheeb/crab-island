@@ -19,6 +19,61 @@ function Numpad({ onDigit, onBack }) {
   );
 }
 
+// Declared at module scope (not inside PaymentModal) so it keeps a stable
+// component identity across renders — defining it inline in the parent's
+// render body would give React a new function reference on every keystroke,
+// which makes React tear down and remount the whole modal (replaying its
+// mount animation) instead of just updating the changed text.
+function ModalHead({ orderNo, title, onCancel }) {
+  return (
+    <div className="modal-head">
+      <div>
+        <div className="mh-num">{orderNo}</div>
+        <h3>{title}</h3>
+      </div>
+      <button className="modal-close" onClick={onCancel}><Icon.x /></button>
+    </div>
+  );
+}
+
+function CashNumpadScreen({
+  orderNo, title, amountLabel, targetAmount, beforeAmount,
+  tendered, tenderedRaw, changeDue,
+  onDigit, onBack, onGoBack, onConfirm, onCancel,
+}) {
+  return (
+    <div className="overlay">
+      <div className="modal pay-modal">
+        <ModalHead orderNo={orderNo} title={title} onCancel={onCancel} />
+        <div className="modal-body">
+          {beforeAmount}
+          <div className="pay-amount-display">
+            <span className="pad-label">{amountLabel}</span>
+            <span className="pad-value">{money(targetAmount)}</span>
+          </div>
+          <div className="pay-tendered-display">
+            <span className="pad-label">Tendered</span>
+            <span className="pad-tendered">{money(tendered)}</span>
+          </div>
+          {tenderedRaw && changeDue >= 0 && (
+            <div className="pay-change-display">
+              <span className="pad-label">Change</span>
+              <span className="pad-change">{money(changeDue)}</span>
+            </div>
+          )}
+          <Numpad onDigit={onDigit} onBack={onBack} />
+        </div>
+        <div className="modal-foot">
+          <button className="btn-ghost" onClick={onGoBack}>Back</button>
+          <button className="btn-primary" disabled={!tenderedRaw || changeDue < 0} onClick={onConfirm}>
+            Confirm &amp; Open Drawer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentModal({ order, onConfirm, onCancel }) {
   const { lines, total } = order;
   const [cookingFee, setCookingFee] = useState(() => cookingFeeFromLines(lines));
@@ -36,55 +91,10 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
   const delDigit = () => setTenderedRaw(p => p.slice(0, -1));
   const goBack = (s) => { setStep(s); setTenderedRaw(''); };
 
-  const ModalHead = ({ title }) => (
-    <div className="modal-head">
-      <div>
-        <div className="mh-num">{order.orderNo}</div>
-        <h3>{title}</h3>
-      </div>
-      <button className="modal-close" onClick={onCancel}><Icon.x /></button>
-    </div>
-  );
-
-  const CashNumpadScreen = ({ targetAmount, backStep, backLabel, payMethod, tenders }) => (
-    <div className="overlay">
-      <div className="modal pay-modal">
-        <ModalHead title={backLabel} />
-        <div className="modal-body">
-          <div className="pay-amount-display">
-            <span className="pad-label">{step === 'ebt-cooking-cash' ? 'Cooking fee' : 'Total'}</span>
-            <span className="pad-value">{money(targetAmount)}</span>
-          </div>
-          <div className="pay-tendered-display">
-            <span className="pad-label">Tendered</span>
-            <span className="pad-tendered">{money(tendered)}</span>
-          </div>
-          {tenderedRaw && changeDue >= 0 && (
-            <div className="pay-change-display">
-              <span className="pad-label">Change</span>
-              <span className="pad-change">{money(changeDue)}</span>
-            </div>
-          )}
-          <Numpad onDigit={addDigit} onBack={delDigit} />
-        </div>
-        <div className="modal-foot">
-          <button className="btn-ghost" onClick={() => goBack(backStep)}>Back</button>
-          <button
-            className="btn-primary"
-            disabled={!tenderedRaw || changeDue < 0}
-            onClick={() => onConfirm({ kickDrawer: true, payMethod, changeDue, tenders })}
-          >
-            Confirm &amp; Open Drawer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   if (step === 'method') return (
     <div className="overlay">
       <div className="modal pay-modal">
-        <ModalHead title={order.cust.name || 'Walk-in'} />
+        <ModalHead orderNo={order.orderNo} title={order.cust.name || 'Walk-in'} onCancel={onCancel} />
         <div className="modal-body">
           <div className="pay-total-row">
             <span>Total</span>
@@ -109,18 +119,25 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
 
   if (step === 'cash') return (
     <CashNumpadScreen
+      orderNo={order.orderNo}
+      title="Cash Payment"
+      amountLabel="Total"
       targetAmount={total}
-      backStep="method"
-      backLabel="Cash Payment"
-      payMethod="Cash"
-      tenders={{ cash: total, credit: 0, ebt: 0 }}
+      tendered={tendered}
+      tenderedRaw={tenderedRaw}
+      changeDue={changeDue}
+      onDigit={addDigit}
+      onBack={delDigit}
+      onGoBack={() => goBack('method')}
+      onConfirm={() => onConfirm({ kickDrawer: true, payMethod: 'Cash', changeDue, tenders: { cash: total, credit: 0, ebt: 0 } })}
+      onCancel={onCancel}
     />
   );
 
   if (step === 'credit') return (
     <div className="overlay">
       <div className="modal pay-modal">
-        <ModalHead title="Credit Card" />
+        <ModalHead orderNo={order.orderNo} title="Credit Card" onCancel={onCancel} />
         <div className="modal-body">
           <div className="pay-terminal-note">Run card on terminal</div>
           <div className="pay-amount-display" style={{ marginTop: 16 }}>
@@ -144,7 +161,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
   if (step === 'ebt') return (
     <div className="overlay">
       <div className="modal pay-modal">
-        <ModalHead title="EBT Payment" />
+        <ModalHead orderNo={order.orderNo} title="EBT Payment" onCancel={onCancel} />
         <div className="modal-body">
           <div className="pay-split-block">
             <div className="pay-split-row">
@@ -197,7 +214,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
   if (step === 'ebt-cooking-credit') return (
     <div className="overlay">
       <div className="modal pay-modal">
-        <ModalHead title="EBT + Credit" />
+        <ModalHead orderNo={order.orderNo} title="EBT + Credit" onCancel={onCancel} />
         <div className="modal-body">
           <div className="pay-terminal-note">Run both on separate terminal</div>
           <div className="pay-split-block" style={{ marginTop: 16 }}>
@@ -225,44 +242,28 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
   );
 
   if (step === 'ebt-cooking-cash') return (
-    <div className="overlay">
-      <div className="modal pay-modal">
-        <ModalHead title="Cooking Fee — Cash" />
-        <div className="modal-body">
-          <div className="pay-split-block" style={{ marginBottom: 14 }}>
-            <div className="pay-split-row">
-              <span>EBT terminal</span>
-              <span className="pay-split-ebt">{money(ebtAmount)}</span>
-            </div>
+    <CashNumpadScreen
+      orderNo={order.orderNo}
+      title="Cooking Fee — Cash"
+      amountLabel="Cooking fee"
+      targetAmount={cookingFee}
+      beforeAmount={
+        <div className="pay-split-block" style={{ marginBottom: 14 }}>
+          <div className="pay-split-row">
+            <span>EBT terminal</span>
+            <span className="pay-split-ebt">{money(ebtAmount)}</span>
           </div>
-          <div className="pay-amount-display">
-            <span className="pad-label">Cooking fee</span>
-            <span className="pad-value">{money(cookingFee)}</span>
-          </div>
-          <div className="pay-tendered-display">
-            <span className="pad-label">Tendered</span>
-            <span className="pad-tendered">{money(tendered)}</span>
-          </div>
-          {tenderedRaw && changeDue >= 0 && (
-            <div className="pay-change-display">
-              <span className="pad-label">Change</span>
-              <span className="pad-change">{money(changeDue)}</span>
-            </div>
-          )}
-          <Numpad onDigit={addDigit} onBack={delDigit} />
         </div>
-        <div className="modal-foot">
-          <button className="btn-ghost" onClick={() => goBack('ebt')}>Back</button>
-          <button
-            className="btn-primary"
-            disabled={!tenderedRaw || changeDue < 0}
-            onClick={() => onConfirm({ kickDrawer: true, payMethod: 'EBT + Cash', changeDue, tenders: { cash: cookingFee, credit: 0, ebt: ebtAmount } })}
-          >
-            Confirm &amp; Open Drawer
-          </button>
-        </div>
-      </div>
-    </div>
+      }
+      tendered={tendered}
+      tenderedRaw={tenderedRaw}
+      changeDue={changeDue}
+      onDigit={addDigit}
+      onBack={delDigit}
+      onGoBack={() => goBack('ebt')}
+      onConfirm={() => onConfirm({ kickDrawer: true, payMethod: 'EBT + Cash', changeDue, tenders: { cash: cookingFee, credit: 0, ebt: ebtAmount } })}
+      onCancel={onCancel}
+    />
   );
 
   return null;
