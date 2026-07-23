@@ -188,28 +188,30 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
             </div>
           )}
 
-          <div className="opt-group">
-            <p className="opt-label">Seasoning <span className="req">mix &amp; match</span></p>
-            <div className="seg">
-              {SEASONINGS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className={c.seasoning[s] ? "on" : ""}
-                  onClick={() => {
-                    const next = s === "No Seasoning"
-                      // "No Seasoning" is exclusive — picking it clears every other seasoning.
-                      ? Object.fromEntries(SEASONINGS.map((o) => [o, o === s]))
-                      // Picking any real seasoning turns "No Seasoning" back off.
-                      : { ...c.seasoning, "No Seasoning": false, [s]: !c.seasoning[s] };
-                    set({ seasoning: next });
-                  }}
-                >
-                  {c.seasoning[s] && <Icon.check className="ck" />}{s}
-                </button>
-              ))}
+          {item.seasoning !== false && (
+            <div className="opt-group">
+              <p className="opt-label">Seasoning <span className="req">mix &amp; match</span></p>
+              <div className="seg">
+                {SEASONINGS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={c.seasoning[s] ? "on" : ""}
+                    onClick={() => {
+                      const next = s === "No Seasoning"
+                        // "No Seasoning" is exclusive — picking it clears every other seasoning.
+                        ? Object.fromEntries(SEASONINGS.map((o) => [o, o === s]))
+                        // Picking any real seasoning turns "No Seasoning" back off.
+                        : { ...c.seasoning, "No Seasoning": false, [s]: !c.seasoning[s] };
+                      set({ seasoning: next });
+                    }}
+                  >
+                    {c.seasoning[s] && <Icon.check className="ck" />}{s}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {c.butter !== null && (
             <div className="opt-group">

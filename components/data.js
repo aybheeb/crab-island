@@ -30,10 +30,10 @@ export const MENU = [
   { id: "29", num: "#29", name: "Shrimp, Crab & Lobster", desc: "½ lb. Large Shrimp, Snow Crab, Small Lobster Tail",                     category: "Combination Platters", platter: true, cooking: true,  price: 43.99, sizes: null },
 
   // ── Rice Bowls ────────────────────────────────────────────────
-  { id: "31", num: "#31", name: "Fish Bowl",        desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 17.99, sizes: null },
-  { id: "32", num: "#32", name: "Shrimp Bowl",      desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 16.99, sizes: null },
-  { id: "33", num: "#33", name: "Fish & Shrimp Bowl", desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 17.99, sizes: null },
-  { id: "34", num: "#34", name: "Chicken Bowl",     desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 14.99, sizes: null },
+  { id: "31", num: "#31", name: "Fish Bowl",        desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 17.99, sizes: null, seasoning: false },
+  { id: "32", num: "#32", name: "Shrimp Bowl",      desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 16.99, sizes: null, seasoning: false },
+  { id: "33", num: "#33", name: "Fish & Shrimp Bowl", desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 17.99, sizes: null, seasoning: false },
+  { id: "34", num: "#34", name: "Chicken Bowl",     desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 14.99, sizes: null, seasoning: false },
 
   // ── Sides ─────────────────────────────────────────────────────
   { id: "s1",  num: null, name: "Crab Leg Cluster (×1)", desc: "",                category: "Sides", platter: false, cooking: false, price: 17.99, sizes: null },
@@ -44,16 +44,16 @@ export const MENU = [
   { id: "s6",  num: null, name: "Oysters (½ dozen)",      desc: "",                category: "Sides", platter: false, cooking: false, price: 13.99, sizes: null },
   { id: "s7",  num: null, name: "Fried Calamari",         desc: "",                category: "Sides", platter: false, cooking: false, price: 13.99, sizes: null },
   { id: "s8",  num: null, name: "Clam Strips",            desc: "",                category: "Sides", platter: false, cooking: false, price: 6.99,  sizes: null },
-  { id: "s9",  num: null, name: "Turkey Sausage",         desc: "",                category: "Sides", platter: false, cooking: false, price: 6.99,  sizes: null },
+  { id: "s9",  num: null, name: "Turkey Sausage",         desc: "",                category: "Sides", platter: false, cooking: false, price: 6.99,  sizes: null, seasoning: false },
   { id: "s10", num: null, name: "Eggs",                    desc: "×1 or ×2",        category: "Sides", platter: false, cooking: false, sizes: [{ label: "×1", price: 1.50 }, { label: "×2", price: 2.99 }] },
-  { id: "s11", num: null, name: "Garlic Bread (×2 pcs)",  desc: "",                category: "Sides", platter: false, cooking: false, price: 1.99,  sizes: null },
+  { id: "s11", num: null, name: "Garlic Bread (×2 pcs)",  desc: "",                category: "Sides", platter: false, cooking: false, price: 1.99,  sizes: null, seasoning: false },
   { id: "s12", num: null, name: "Fries",                  desc: "",                category: "Sides", platter: false, cooking: false, price: 4.99,  sizes: null },
   { id: "s13", num: null, name: "Broccoli",                desc: "",                category: "Sides", platter: false, cooking: false, price: 4.00,  sizes: null },
   { id: "s14", num: null, name: "Potato",                  desc: "",                category: "Sides", platter: false, cooking: false, price: 4.00,  sizes: null },
   { id: "s15", num: null, name: "Corn (1 pc)",             desc: "",                category: "Sides", platter: false, cooking: false, price: 1.50,  sizes: null },
-  { id: "s16", num: null, name: "Cheesecake",              desc: "",                category: "Sides", platter: false, cooking: false, price: 3.99,  sizes: null },
-  { id: "s17", num: null, name: "Strawberry Cheesecake",   desc: "",                category: "Sides", platter: false, cooking: false, price: 4.99,  sizes: null },
-  { id: "s18", num: null, name: "Rice",                    desc: "Small or Large",  category: "Sides", platter: false, cooking: false, sizes: [{ label: "Small", price: 3.99 }, { label: "Large", price: 5.99 }] },
+  { id: "s16", num: null, name: "Cheesecake",              desc: "",                category: "Sides", platter: false, cooking: false, price: 3.99,  sizes: null, seasoning: false },
+  { id: "s17", num: null, name: "Strawberry Cheesecake",   desc: "",                category: "Sides", platter: false, cooking: false, price: 4.99,  sizes: null, seasoning: false },
+  { id: "s18", num: null, name: "Rice",                    desc: "Small or Large",  category: "Sides", platter: false, cooking: false, sizes: [{ label: "Small", price: 3.99 }, { label: "Large", price: 5.99 }], seasoning: false },
 ];
 
 export const SEASONINGS   = ["House", "Cajun", "Lemon Pepper", "No Seasoning"];
@@ -113,8 +113,10 @@ export function unitPriceFor(item, custom) {
 export function customChips(item, c) {
   const chips = [];
   if (c.size)      chips.push(c.size);
-  const seasonings = SEASONINGS.filter((s) => c.seasoning[s]);
-  if (seasonings.length) chips.push(seasonings.join(' + '));
+  if (item.seasoning !== false) {
+    const seasonings = SEASONINGS.filter((s) => c.seasoning[s]);
+    if (seasonings.length) chips.push(seasonings.join(' + '));
+  }
   if (c.butter)    chips.push(c.butter);
   if (c.cooking)   chips.push(c.cooking);
   if (item.fishChoice && c.fishType) {
