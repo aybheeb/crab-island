@@ -20,6 +20,7 @@ export async function GET() {
   try {
     const res = await fetch(`${printServerUrl}/report`, {
       headers,
+      cache: 'no-store',
       signal: AbortSignal.timeout(15000),
     });
 
