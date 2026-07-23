@@ -251,7 +251,14 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
             <>
               <div className="opt-group">
                 <p className="opt-label">Veggie</p>
-                <Seg options={BOWL_VEGGIES} value={c.bowlVeg} onChange={(v) => set({ bowlVeg: v })} />
+                <div className="seg">
+                  {BOWL_VEGGIES.map((v) => (
+                    <button key={v} type="button" className={c.bowlVeg[v] ? "on" : ""}
+                      onClick={() => set({ bowlVeg: { ...c.bowlVeg, [v]: !c.bowlVeg[v] } })}>
+                      {c.bowlVeg[v] && <Icon.check className="ck" />}{v}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="opt-group">
                 <p className="opt-label">Sauce</p>

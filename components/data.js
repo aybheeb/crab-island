@@ -17,23 +17,23 @@ export const MENU = [
   { id: "13", num: "#13", name: "Crawfish (1 lb.)", desc: "",                       category: "Seafood Platters",    platter: true,  cooking: false, price: 17.99,  sizes: null, noCombo: { sizes: [{ label: "½ lb.", price: 7.99 }, { label: "1 lb.", price: 12.99 }] } },
 
   // ── Combination Platters ──────────────────────────────────────
-  { id: "14", num: "#14", name: "Seafood Combo",           desc: "Snow Crab Cluster & ½ lb. Shrimp",                                       category: "Combination Platters", platter: true, cooking: true,  price: 33.99, sizes: null },
+  { id: "14", num: "#14", name: "Seafood Combo",           desc: "Snow Crab Cluster & ½ lb. Shrimp",                                       category: "Combination Platters", platter: true, cooking: false, price: 33.99, sizes: null },
   { id: "15", num: "#15", name: "Crab & Lobster Tail",     desc: "Snow Crab Cluster & One Medium Lobster Tail",                            category: "Combination Platters", platter: true, cooking: false, price: 38.99, sizes: null },
-  { id: "16", num: "#16", name: "Crab & Fish",             desc: "Snow Crab Cluster & ½ lb. Fish (Catfish/Salmon/Walleye add $2)",         category: "Combination Platters", platter: true, cooking: true,  price: 26.99, sizes: null, fishChoice: true },
+  { id: "16", num: "#16", name: "Crab & Fish",             desc: "Snow Crab Cluster & ½ lb. Fish (Catfish/Salmon/Walleye add $2)",         category: "Combination Platters", platter: true, cooking: false, price: 26.99, sizes: null, fishChoice: true },
   { id: "17", num: "#17", name: "Crab & Crawfish",         desc: "Snow Crab & 1 lb. Crawfish",                                            category: "Combination Platters", platter: true, cooking: false, price: 27.99, sizes: null },
-  { id: "21", num: "#21", name: "Shrimp & Lobster Tail",  desc: "½ lb. Shrimp & One Medium Lobster Tail",                                category: "Combination Platters", platter: true, cooking: true,  price: 33.99, sizes: null },
+  { id: "21", num: "#21", name: "Shrimp & Lobster Tail",  desc: "½ lb. Shrimp & One Medium Lobster Tail",                                category: "Combination Platters", platter: true, cooking: false, price: 33.99, sizes: null },
   { id: "22", num: "#22", name: "Shrimp & Fish",           desc: "½ lb. Shrimp & ½ lb. Fish (Catfish/Salmon/Walleye add $2)",             category: "Combination Platters", platter: true, cooking: true,  price: 21.99, sizes: null, fishChoice: true },
-  { id: "24", num: "#24", name: "Shrimp & Mussels",        desc: "½ lb. Large Shrimp & 1 lb. Mussels",                                    category: "Combination Platters", platter: true, cooking: true,  price: 24.99, sizes: null },
-  { id: "25", num: "#25", name: "Double Seafood",          desc: "1 lb. Snow Crab & 1 lb. Shrimp",                                        category: "Combination Platters", platter: true, cooking: true,  price: 62.99, sizes: null },
-  { id: "26", num: "#26", name: "Ultimate Combo",          desc: "Snow Crab, ½ lb. Fish, One Medium Tail, ½ lb. Shrimp (Catfish/Salmon/Walleye add $2)", category: "Combination Platters", platter: true, cooking: true, price: 54.99, sizes: null, fishChoice: true },
-  { id: "28", num: "#28", name: "King Combo",              desc: "1 lb. Snow Crab, 1 lb. Large Shrimp, Two Medium Tails",                 category: "Combination Platters", platter: true, cooking: true,  price: 93.99, sizes: null },
-  { id: "29", num: "#29", name: "Shrimp, Crab & Lobster", desc: "½ lb. Large Shrimp, Snow Crab, Small Lobster Tail",                     category: "Combination Platters", platter: true, cooking: true,  price: 43.99, sizes: null },
+  { id: "24", num: "#24", name: "Shrimp & Mussels",        desc: "½ lb. Large Shrimp & 1 lb. Mussels",                                    category: "Combination Platters", platter: true, cooking: false, price: 24.99, sizes: null },
+  { id: "25", num: "#25", name: "Double Seafood",          desc: "1 lb. Snow Crab & 1 lb. Shrimp",                                        category: "Combination Platters", platter: true, cooking: false, price: 62.99, sizes: null },
+  { id: "26", num: "#26", name: "Ultimate Combo",          desc: "Snow Crab, ½ lb. Fish, One Medium Tail, ½ lb. Shrimp (Catfish/Salmon/Walleye add $2)", category: "Combination Platters", platter: true, cooking: false, price: 54.99, sizes: null, fishChoice: true },
+  { id: "28", num: "#28", name: "King Combo",              desc: "1 lb. Snow Crab, 1 lb. Large Shrimp, Two Medium Tails",                 category: "Combination Platters", platter: true, cooking: false, price: 93.99, sizes: null },
+  { id: "29", num: "#29", name: "Shrimp, Crab & Lobster", desc: "½ lb. Large Shrimp, Snow Crab, Small Lobster Tail",                     category: "Combination Platters", platter: true, cooking: false, price: 43.99, sizes: null },
 
   // ── Rice Bowls ────────────────────────────────────────────────
-  { id: "31", num: "#31", name: "Fish Bowl",        desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 17.99, sizes: null, seasoning: false },
-  { id: "32", num: "#32", name: "Shrimp Bowl",      desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 16.99, sizes: null, seasoning: false },
-  { id: "33", num: "#33", name: "Fish & Shrimp Bowl", desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 17.99, sizes: null, seasoning: false },
-  { id: "34", num: "#34", name: "Chicken Bowl",     desc: "Rice, broccoli or corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 14.99, sizes: null, seasoning: false },
+  { id: "31", num: "#31", name: "Fish Bowl",        desc: "Rice, broccoli and corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 17.99, sizes: null, seasoning: false },
+  { id: "32", num: "#32", name: "Shrimp Bowl",      desc: "Rice, broccoli and corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 16.99, sizes: null, seasoning: false },
+  { id: "33", num: "#33", name: "Fish & Shrimp Bowl", desc: "Rice, broccoli and corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 17.99, sizes: null, seasoning: false },
+  { id: "34", num: "#34", name: "Chicken Bowl",     desc: "Rice, broccoli and corn, Island or White sauce", category: "Rice Bowls", platter: false, cooking: false, bowl: true, price: 14.99, sizes: null, seasoning: false },
 
   // ── Sides ─────────────────────────────────────────────────────
   { id: "s1",  num: null, name: "Crab Leg Cluster (×1)", desc: "",                category: "Sides", platter: false, cooking: false, price: 17.99, sizes: null },
@@ -81,7 +81,7 @@ export function defaultCustom(item) {
     fishType:  item.fishChoice ? FISH_TYPES[0].label  : null,
     fries:     false,
     veg:       { Broccoli: true, Corn: true, Potatoes: true },
-    bowlVeg:   item.bowl       ? "Broccoli"           : null,
+    bowlVeg:   item.bowl       ? { Broccoli: true, Corn: true } : null,
     sauce:     item.bowl       ? "Island Sauce"       : null,
     noCombo:   item.noCombo    ? false                : null,
     qty:       1,
@@ -127,7 +127,8 @@ export function customChips(item, c) {
     chips.push(fish?.upcharge > 0 ? `${c.fishType} (+$${fish.upcharge})` : c.fishType);
   }
   if (item.bowl) {
-    if (c.bowlVeg) chips.push(c.bowlVeg);
+    const missingVeg = BOWL_VEGGIES.filter((v) => !c.bowlVeg[v]);
+    if (missingVeg.length) chips.push(`No ${missingVeg.join(' & ')}`);
     if (c.sauce)   chips.push(c.sauce);
   } else if (item.noCombo && c.noCombo) {
     chips.push("No Sides");

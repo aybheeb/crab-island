@@ -205,8 +205,8 @@ export default function App() {
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
-          setReport(d.report);
           setOrders([]);
+          setShowReport(false);
           flashToast('Day closed — report printed');
         } else {
           setReportError(d.error ?? 'Failed to close day');
