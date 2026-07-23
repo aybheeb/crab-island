@@ -2,7 +2,9 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import express from 'express';
-import { printTicket, openCashDrawer, printCustomerReceipt } from '../server/services/printService.js';
+import { printTicket, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
+import { recordOrder, getCurrentReport, archiveAndResetDay } from '../server/services/orderStore.js';
+import { money } from '../components/data.js';
 
 // Load root .env.local so PRINT_API_KEY and PORT are available without shell gymnastics
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -72,6 +74,50 @@ app.post('/open-drawer', async (_req, res) => {
     console.error('[print-server] Drawer kick failed:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Records a finalized, paid order into the current day's running sales log —
+// called right after payment confirmation, independent of ticket printing.
+app.post('/orders', (req, res) => {
+  const order = req.body;
+
+  if (!order?.orderNo || !order?.ts) {
+    return res.status(400).json({ error: 'Order missing orderNo/ts' });
+  }
+
+  try {
+    recordOrder(order);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[print-server] Record order failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Read-only preview of the current (still-open) day's totals.
+app.get('/report', (_req, res) => {
+  res.json({ success: true, report: getCurrentReport() });
+});
+
+// Prints the Z-report and, only once that succeeds, archives the day's raw
+// order log and resets the running totals for the next day. If printing
+// fails the day stays open so the report can be retried without losing data.
+app.post('/close-day', async (_req, res) => {
+  const report = getCurrentReport();
+  if (report.orderCount === 0) {
+    return res.status(400).json({ error: 'No orders recorded for the current day' });
+  }
+
+  try {
+    await printDailyReport(report);
+  } catch (err) {
+    console.error('[print-server] Daily report print failed — day NOT closed:', err.message);
+    return res.status(500).json({ error: `Print failed, day not closed: ${err.message}` });
+  }
+
+  archiveAndResetDay();
+  console.log(`[print-server] Day closed — ${report.orderCount} order(s), ${money(report.grandTotal)} total`);
+  res.json({ success: true, report });
 });
 
 // ── Start ────────────────────────────────────────────────────────────────────

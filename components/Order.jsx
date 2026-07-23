@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Icon } from './Menu';
 import { customChips, money } from './data';
 
@@ -203,6 +204,70 @@ export function PlacedOrders({ orders, onClose, onRecall, onView }) {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function DailyReportModal({ report, loading, error, closing, onClose, onCloseDay }) {
+  const [confirming, setConfirming] = useState(false);
+
+  const stamp = (iso) => iso ? new Date(iso).toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+  }) : "—";
+
+  return (
+    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-head">
+          <div>
+            <h3>Daily Report</h3>
+            <p>{report ? `Since ${stamp(report.openedAt)}` : "Today's sales"}</p>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close"><Icon.x /></button>
+        </div>
+        <div className="modal-body scroll">
+          {loading && <div className="po-empty">Loading…</div>}
+          {error && <div className="field-error-msg" style={{ marginBottom: 12 }}>{error}</div>}
+          {report && !loading && (
+            report.orderCount === 0 ? (
+              <div className="po-empty">No orders recorded yet today.</div>
+            ) : (
+              <>
+                <div className="subtle-row"><span>Orders</span><span>{report.orderCount}</span></div>
+                <div className="subtle-row"><span>Items sold</span><span>{report.itemCount}</span></div>
+                <hr className="ticket-divider" />
+                <div className="subtle-row"><span>Cash</span><span>{money(report.cash)}</span></div>
+                <div className="subtle-row"><span>Credit</span><span>{money(report.credit)}</span></div>
+                <div className="subtle-row"><span>EBT</span><span>{money(report.ebt)}</span></div>
+                <hr className="ticket-divider" />
+                <div className="total-row">
+                  <span className="tl">Grand Total</span>
+                  <span className="tv">{money(report.grandTotal)}</span>
+                </div>
+                {confirming && (
+                  <div className="field-error-msg" style={{ marginTop: 4 }}>
+                    This prints the report and resets tomorrow's totals to zero. Confirm?
+                  </div>
+                )}
+              </>
+            )
+          )}
+        </div>
+        <div className="modal-foot">
+          <button className="btn-ghost" onClick={confirming ? () => setConfirming(false) : onClose}>
+            {confirming ? "Back" : "Close"}
+          </button>
+          {report && report.orderCount > 0 && (
+            <button
+              className="btn-primary"
+              disabled={closing}
+              onClick={confirming ? onCloseDay : () => setConfirming(true)}
+            >
+              <Icon.print /> {closing ? "Closing…" : confirming ? "Confirm Close Day" : "Print & Close Day"}
+            </button>
           )}
         </div>
       </div>

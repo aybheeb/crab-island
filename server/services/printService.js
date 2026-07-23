@@ -210,6 +210,60 @@ function buildReceiptBytes(order, copyLabel, profile) {
   return Buffer.concat(parts);
 }
 
+// ── Daily sales report (Z-report) ───────────────────────────────────────────
+
+function buildDailyReportBytes(report, profile) {
+  const { openedAt, generatedAt, orderCount, itemCount, cash, credit, ebt, grandTotal } = report;
+  const fmtStamp = (iso) => new Date(iso).toLocaleString('en-US', {
+    month: '2-digit', day: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+  });
+
+  const tenderRow = (label, amt) => {
+    const amtStr = money(amt);
+    const pad = Math.max(1, 42 - label.length - amtStr.length);
+    return row(`${label}${' '.repeat(pad)}${amtStr}`);
+  };
+
+  const parts = [INIT(), ALIGN_CENTER()];
+
+  if (profile.bigText) parts.push(DOUBLE_SIZE());
+  parts.push(BOLD_ON());
+  parts.push(row('CRAB ISLAND'));
+  if (profile.bigText) parts.push(NORMAL_SIZE());
+  parts.push(BOLD_OFF());
+  parts.push(row('*** DAILY SALES REPORT ***'));
+  parts.push(divider());
+
+  parts.push(ALIGN_LEFT());
+  parts.push(row(`Period start: ${openedAt ? fmtStamp(openedAt) : 'n/a'}`));
+  parts.push(row(`Printed:      ${fmtStamp(generatedAt)}`));
+  parts.push(divider());
+
+  parts.push(row(`Orders:       ${orderCount}`));
+  parts.push(row(`Items sold:   ${itemCount}`));
+  parts.push(divider());
+
+  parts.push(BOLD_ON());
+  parts.push(tenderRow('Cash', cash));
+  parts.push(tenderRow('Credit', credit));
+  parts.push(tenderRow('EBT', ebt));
+  parts.push(BOLD_OFF());
+  parts.push(divider());
+
+  parts.push(BOLD_ON());
+  if (profile.bigText) parts.push(GS_TALL());
+  parts.push(tenderRow('GRAND TOTAL', grandTotal));
+  if (profile.bigText) parts.push(GS_NORMAL());
+  parts.push(BOLD_OFF());
+  parts.push(divider());
+
+  parts.push(ALIGN_CENTER());
+  parts.push(row('-- End of day --'));
+
+  return Buffer.concat(parts);
+}
+
 // ── PowerShell winspool.drv P/Invoke shim ───────────────────────────────────
 
 const PS_RAWPRINT = String.raw`
@@ -402,4 +456,13 @@ export async function printCustomerReceipt(order) {
     ...CASHIER_PROFILE.trailingCut(),
   ]);
   sendToFirstAvailable(CASHIER_PRINTER_NAMES, bytes, 'Customer receipt');
+}
+
+// Prints the end-of-day Z-report on the cashier printer.
+export async function printDailyReport(report) {
+  const bytes = Buffer.concat([
+    buildDailyReportBytes(report, CASHIER_PROFILE),
+    ...CASHIER_PROFILE.trailingCut(),
+  ]);
+  sendToFirstAvailable(CASHIER_PRINTER_NAMES, bytes, 'Daily report');
 }

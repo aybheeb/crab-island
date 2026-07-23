@@ -42,6 +42,8 @@ yarn-error.log*
 
 # print server — cloudflared.yml contains tunnel credentials, never commit it
 print-server/cloudflared.yml
+# print server — daily sales data, local to the register machine
+print-server/data/
 # cloudflared credential files
 *.cloudflared.json
 

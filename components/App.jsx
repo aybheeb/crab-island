@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { CATEGORIES, defaultCustom, unitPriceFor, money } from './data';
 import { Icon, MenuPanel, CustomModal, CATEGORY_META } from './Menu';
-import { OrderSummary, TicketModal, PlacedOrders } from './Order';
+import { OrderSummary, TicketModal, PlacedOrders, DailyReportModal } from './Order';
 import PaymentModal from './PaymentModal';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSlider, TweakToggle } from './TweaksPanel';
 
@@ -56,6 +56,11 @@ export default function App() {
   const [ticket, setTicket] = useState(null);
   const [paymentOrder, setPaymentOrder] = useState(null);
   const [showPlaced, setShowPlaced] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState(null);
+  const [closingDay, setClosingDay] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [nameError, setNameError] = useState(false);
@@ -120,10 +125,25 @@ export default function App() {
     setPaymentOrder(order);
   };
 
-  const handlePaymentConfirm = ({ kickDrawer, payMethod, changeDue }) => {
+  const handlePaymentConfirm = ({ kickDrawer, payMethod, changeDue, tenders }) => {
     const order = { ...paymentOrder, payMethod, changeDue };
     setPaymentOrder(null);
     setTicket(order);
+
+    fetch('/api/record-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderNo: order.orderNo,
+        ts: order.ts,
+        total: order.total,
+        tenders,
+        itemCount: order.lines.reduce((n, l) => n + l.custom.qty, 0),
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (!d.success) flashToast(`Daily report not updated: ${d.error ?? 'Unknown error'}`, true); })
+      .catch((err) => flashToast(`Daily report error: ${err.message}`, true));
 
     const printTicket = () =>
       fetch('/api/print-ticket', {
@@ -164,6 +184,38 @@ export default function App() {
       .catch((err) => flashToast(`Print error: ${err.message}`, true));
   };
 
+  const fetchReport = () => {
+    setReportLoading(true);
+    setReportError(null);
+    fetch('/api/daily-report')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setReport(d.report);
+        else setReportError(d.error ?? 'Failed to load report');
+      })
+      .catch((err) => setReportError(err.message))
+      .finally(() => setReportLoading(false));
+  };
+
+  const openReport = () => { setShowReport(true); fetchReport(); };
+
+  const closeDay = () => {
+    setClosingDay(true);
+    fetch('/api/close-day', { method: 'POST' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setReport(d.report);
+          setOrders([]);
+          flashToast('Day closed — report printed');
+        } else {
+          setReportError(d.error ?? 'Failed to close day');
+        }
+      })
+      .catch((err) => setReportError(err.message))
+      .finally(() => setClosingDay(false));
+  };
+
   const openDrawer = () => {
     fetch('/api/open-drawer', { method: 'POST' })
       .then((r) => r.json())
@@ -201,6 +253,9 @@ export default function App() {
             </button>
             <button className="hdr-btn" onClick={() => setShowPlaced(true)}>
               <Icon.receipt /> Orders {orders.length > 0 && <span className="pill-count">{orders.length}</span>}
+            </button>
+            <button className="hdr-btn" onClick={openReport}>
+              <Icon.print /> Daily Report
             </button>
           </div>
         </div>
@@ -280,6 +335,16 @@ export default function App() {
           onClose={() => setShowPlaced(false)}
           onRecall={recallOrder}
           onView={(o) => { setShowPlaced(false); setTicket(o); }}
+        />
+      )}
+      {showReport && (
+        <DailyReportModal
+          report={report}
+          loading={reportLoading}
+          error={reportError}
+          closing={closingDay}
+          onClose={() => setShowReport(false)}
+          onCloseDay={closeDay}
         />
       )}
 

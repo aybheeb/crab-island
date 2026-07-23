@@ -46,7 +46,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
     </div>
   );
 
-  const CashNumpadScreen = ({ targetAmount, backStep, backLabel, payMethod }) => (
+  const CashNumpadScreen = ({ targetAmount, backStep, backLabel, payMethod, tenders }) => (
     <div className="overlay">
       <div className="modal pay-modal">
         <ModalHead title={backLabel} />
@@ -72,7 +72,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
           <button
             className="btn-primary"
             disabled={!tenderedRaw || changeDue < 0}
-            onClick={() => onConfirm({ kickDrawer: true, payMethod, changeDue })}
+            onClick={() => onConfirm({ kickDrawer: true, payMethod, changeDue, tenders })}
           >
             Confirm &amp; Open Drawer
           </button>
@@ -113,6 +113,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
       backStep="method"
       backLabel="Cash Payment"
       payMethod="Cash"
+      tenders={{ cash: total, credit: 0, ebt: 0 }}
     />
   );
 
@@ -129,7 +130,10 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
         </div>
         <div className="modal-foot">
           <button className="btn-ghost" onClick={() => setStep('method')}>Back</button>
-          <button className="btn-primary" onClick={() => onConfirm({ kickDrawer: false, payMethod: 'Credit' })}>
+          <button
+            className="btn-primary"
+            onClick={() => onConfirm({ kickDrawer: false, payMethod: 'Credit', tenders: { cash: 0, credit: total, ebt: 0 } })}
+          >
             Confirm &amp; Print
           </button>
         </div>
@@ -178,7 +182,10 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
         <div className="modal-foot">
           <button className="btn-ghost" onClick={() => setStep('method')}>Back</button>
           {cookingFee === 0 && (
-            <button className="btn-primary" onClick={() => onConfirm({ kickDrawer: false, payMethod: 'EBT' })}>
+            <button
+              className="btn-primary"
+              onClick={() => onConfirm({ kickDrawer: false, payMethod: 'EBT', tenders: { cash: 0, credit: 0, ebt: ebtAmount } })}
+            >
               Confirm &amp; Print
             </button>
           )}
@@ -206,7 +213,10 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
         </div>
         <div className="modal-foot">
           <button className="btn-ghost" onClick={() => setStep('ebt')}>Back</button>
-          <button className="btn-primary" onClick={() => onConfirm({ kickDrawer: false, payMethod: 'EBT + Credit' })}>
+          <button
+            className="btn-primary"
+            onClick={() => onConfirm({ kickDrawer: false, payMethod: 'EBT + Credit', tenders: { cash: 0, credit: cookingFee, ebt: ebtAmount } })}
+          >
             Confirm &amp; Print
           </button>
         </div>
@@ -246,7 +256,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
           <button
             className="btn-primary"
             disabled={!tenderedRaw || changeDue < 0}
-            onClick={() => onConfirm({ kickDrawer: true, payMethod: 'EBT + Cash', changeDue })}
+            onClick={() => onConfirm({ kickDrawer: true, payMethod: 'EBT + Cash', changeDue, tenders: { cash: cookingFee, credit: 0, ebt: ebtAmount } })}
           >
             Confirm &amp; Open Drawer
           </button>
