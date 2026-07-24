@@ -1,14 +1,8 @@
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import './loadEnv.js';
 import express from 'express';
 import { printTicket, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
 import { recordOrder, getCurrentReport, archiveAndResetDay } from '../server/services/orderStore.js';
 import { money } from '../components/data.js';
-
-// Load root .env.local so PRINT_API_KEY and PORT are available without shell gymnastics
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, '..', '.env.local') });
 
 const app  = express();
 const PORT = process.env.PRINT_SERVER_PORT || 3001;
@@ -66,9 +60,9 @@ app.post('/print-customer-receipt', async (req, res) => {
   }
 });
 
-app.post('/open-drawer', async (req, res) => {
+app.post('/open-drawer', async (_req, res) => {
   try {
-    await openCashDrawer(req.query.variant, req.query.printer);
+    await openCashDrawer();
     res.json({ success: true });
   } catch (err) {
     console.error('[print-server] Drawer kick failed:', err.message);
