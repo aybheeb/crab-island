@@ -1,14 +1,8 @@
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import './loadEnv.js';
 import express from 'express';
 import { printTicket, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
 import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay } from '../server/services/orderStore.js';
 import { money } from '../components/data.js';
-
-// Load root .env.local so PRINT_API_KEY and PORT are available without shell gymnastics
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, '..', '.env.local') });
 
 const app  = express();
 const PORT = process.env.PRINT_SERVER_PORT || 3001;
@@ -120,7 +114,8 @@ app.get('/orders', (_req, res) => {
 });
 
 // Read-only preview of the current (still-open) day's totals.
-app.get('/report', (_req, res) => {
+app.get('/report', (req, res) => {
+  console.log(`[print-server] Report requested from ${req.ip}`);
   res.json({ success: true, report: getCurrentReport() });
 });
 

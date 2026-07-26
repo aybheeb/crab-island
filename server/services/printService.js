@@ -22,8 +22,9 @@ const GS_NORMAL    = () => Buffer.from([GS,  0x21, 0x00]);
 const FEED         = (n = 1) => Buffer.from([ESC, 0x64, n]);
 const CUT          = () => Buffer.from([GS,  0x56, 0x41, 0x00]);
 // ESC p m t1 t2 — Generate Pulse on drawer pin; m=0 → pin 2, m=1 → pin 5; t1=ON time, t2=OFF time (×2ms)
-const DRAWER_KICK_PIN2 = () => Buffer.from([ESC, 0x70, 0x00, 0x19, 0xfa]);
-const DRAWER_KICK_PIN5 = () => Buffer.from([ESC, 0x70, 0x01, 0x19, 0xfa]);
+// t1=0x64 → 200ms ON — lengthened from the 50ms default, which wasn't enough to fully release the latch.
+const DRAWER_KICK_PIN2 = () => Buffer.from([ESC, 0x70, 0x00, 0x64, 0xfa]);
+const DRAWER_KICK_PIN5 = () => Buffer.from([ESC, 0x70, 0x01, 0x64, 0xfa]);
 // Star Line Mode drawer kick-out variants — differs by firmware, so both are sent.
 const DRAWER_KICK_STAR_1 = () => Buffer.from([ESC, 0x07]);
 const DRAWER_KICK_STAR_2 = () => Buffer.from([ESC, 0x1c, 0x07]);
