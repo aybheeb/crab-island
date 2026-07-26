@@ -62,8 +62,11 @@ export function createOrder({ orderNo, cust, lines, total, ts }) {
 }
 
 // Marks a previously-created order as paid — the only other transition an
-// order can undergo. Never touches lines/cust/total.
-export function markOrderPaid(orderNo, { payMethod, changeDue, tenders }) {
+// order can undergo. Never touches lines/cust. `total` may be passed as the
+// settled amount actually charged (e.g. order total + an EBT cooking-fee
+// surcharge) — when given, it overwrites the pre-payment total so the
+// daily report's cash+credit+ebt sum keeps reconciling with grandTotal.
+export function markOrderPaid(orderNo, { payMethod, changeDue, tenders, total }) {
   const data = loadCurrent();
   const order = data.orders.find((o) => o.orderNo === orderNo);
   if (!order) throw new Error(`Order ${orderNo} not found`);
@@ -73,6 +76,7 @@ export function markOrderPaid(orderNo, { payMethod, changeDue, tenders }) {
   order.payMethod = payMethod || null;
   order.changeDue = changeDue ?? null;
   order.tenders = tenders || null;
+  if (total != null) order.total = total;
 
   saveCurrent(data);
   return order;

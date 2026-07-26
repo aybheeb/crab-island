@@ -201,9 +201,11 @@ export default function App() {
     setPaymentOrder(order);
   };
 
-  const handlePaymentConfirm = ({ kickDrawer, payMethod, changeDue, tenders }) => {
+  const handlePaymentConfirm = ({ kickDrawer, payMethod, changeDue, tenders, total: settledTotal }) => {
     const skipKitchenTicket = paymentOrder.ticketPrinted;
-    const order = { ...paymentOrder, status: 'paid', paidAt: Date.now(), payMethod, changeDue, tenders };
+    // settledTotal is what was actually charged — equal to the order total
+    // unless a cooking-fee surcharge got added on top (see PaymentModal).
+    const order = { ...paymentOrder, status: 'paid', paidAt: Date.now(), payMethod, changeDue, tenders, total: settledTotal };
     setPaymentOrder(null);
     setTicket(order);
     setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? order : o));
@@ -211,7 +213,7 @@ export default function App() {
     fetch('/api/record-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderNo: order.orderNo, payMethod, changeDue, tenders }),
+      body: JSON.stringify({ orderNo: order.orderNo, payMethod, changeDue, tenders, total: settledTotal }),
     })
       .then((r) => r.json())
       .then((d) => { if (!d.success) flashToast(`Daily report not updated: ${d.error ?? 'Unknown error'}`, true); })

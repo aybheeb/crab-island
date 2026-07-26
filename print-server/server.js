@@ -92,14 +92,14 @@ app.post('/orders', (req, res) => {
 // Marks an existing order as paid — independent of ticket printing, and the
 // only other transition an order can undergo (order contents are immutable).
 app.post('/orders/pay', (req, res) => {
-  const { orderNo, payMethod, changeDue, tenders } = req.body;
+  const { orderNo, payMethod, changeDue, tenders, total } = req.body;
 
   if (!orderNo) {
     return res.status(400).json({ error: 'orderNo is required' });
   }
 
   try {
-    const order = markOrderPaid(orderNo, { payMethod, changeDue, tenders });
+    const order = markOrderPaid(orderNo, { payMethod, changeDue, tenders, total });
     res.json({ success: true, order });
   } catch (err) {
     console.error('[print-server] Mark order paid failed:', err.message);

@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-// Marks a previously-created order (see /api/orders) as paid. Order contents
-// are never touched here — only the one-way "pending" -> "paid" transition.
+// Marks a previously-created order (see /api/orders) as paid — the one-way
+// "pending" -> "paid" transition. Line items/customer info are immutable;
+// `total` may still be adjusted here to the settled amount actually charged
+// (e.g. an EBT cooking-fee surcharge), see orderStore.markOrderPaid.
 export async function POST(request) {
   let body;
   try {

@@ -98,12 +98,17 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
   const [entryMethod, setEntryMethod] = useState(null); // null | 'cash' | 'credit' | 'ebt'
   const [tenderedRaw, setTenderedRaw] = useState('');
 
+  // EBT covers hot/prepared food at full menu price (unlike a straight
+  // SNAP-eligibility cap) — the cooking fee is a separate surcharge that
+  // only becomes owed once EBT is actually used, added on top of the order
+  // total rather than carved out of it. Paying entirely by cash/credit never
+  // incurs it.
+  const ebtUsed = tenders.ebt > 0;
+  const feeApplies = cookingFee > 0 && ebtUsed;
+  const effectiveTotal = feeApplies ? round2(total + cookingFee) : total;
+
   const applied = round2(tenders.cash + tenders.credit + tenders.ebt);
-  const remaining = round2(total - applied);
-  // EBT can't cover hot/prepared food (SNAP eligibility rule) — cap it to the
-  // non-cooking-fee portion of the order, adjustable via the stepper below.
-  const ebtCap = Math.max(0, round2(total - cookingFee));
-  const ebtRemainingCap = Math.max(0, round2(ebtCap - tenders.ebt));
+  const remaining = round2(effectiveTotal - applied);
 
   // tenderedRaw is a string of digits representing cents (e.g. "5000" = $50.00)
   const tendered = parseInt(tenderedRaw || '0', 10) / 100;
@@ -111,8 +116,6 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
   const addDigit = (d) =>
     setTenderedRaw(p => (p.length >= 7 ? p : (p + d).replace(/^0+/, '') || '0'));
   const delDigit = () => setTenderedRaw(p => p.slice(0, -1));
-
-  const capFor = (method) => method === 'ebt' ? Math.min(remaining, ebtRemainingCap) : remaining;
 
   const openEntry = (method) => {
     setEntryMethod(method);
@@ -122,8 +125,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
     } else {
       // Credit/EBT default to covering the rest, so the common (unsplit)
       // case is still just "pick a method, confirm" — no typing required.
-      const cap = capFor(method);
-      setTenderedRaw(cap > 0 ? String(Math.round(cap * 100)) : '');
+      setTenderedRaw(remaining > 0 ? String(Math.round(remaining * 100)) : '');
     }
   };
 
@@ -134,7 +136,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
     if (method === 'cash') setChangeDue(0);
   };
 
-  const finalize = (finalTenders, finalChangeDue) => {
+  const finalize = (finalTenders, finalChangeDue, finalTotal) => {
     const parts = [];
     if (finalTenders.cash > 0) parts.push('Cash');
     if (finalTenders.credit > 0) parts.push('Credit');
@@ -144,6 +146,12 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
       payMethod: parts.join(' + ') || 'Cash',
       changeDue: finalTenders.cash > 0 ? finalChangeDue : null,
       tenders: finalTenders,
+      // The settled total — equals the order total unless a cooking fee got
+      // added, in which case this is what was actually charged. Storing it
+      // here (rather than leaving the pre-fee total) is what keeps the
+      // ticket's TOTAL line and the daily report's cash+credit+ebt in sync
+      // with what the tenders actually sum to.
+      total: finalTotal,
     });
   };
 
@@ -156,15 +164,21 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
       newChangeDue = round2(Math.max(0, tendered - remaining));
       newTenders.cash = round2(newTenders.cash + applyAmt);
     } else {
-      const applyAmt = round2(Math.min(tendered, capFor(entryMethod)));
+      const applyAmt = round2(Math.min(tendered, remaining));
       newTenders[entryMethod] = round2(newTenders[entryMethod] + applyAmt);
     }
 
-    const newRemaining = round2(total - (newTenders.cash + newTenders.credit + newTenders.ebt));
+    // Recompute with the new tenders — applying EBT here for the first time
+    // is exactly the moment the cooking-fee surcharge switches on, which can
+    // push the balance back above zero even though this entry looked like it
+    // covered everything when it was typed.
+    const newFeeApplies = cookingFee > 0 && newTenders.ebt > 0;
+    const newEffectiveTotal = newFeeApplies ? round2(total + cookingFee) : total;
+    const newRemaining = round2(newEffectiveTotal - (newTenders.cash + newTenders.credit + newTenders.ebt));
     if (newRemaining <= 0) {
       // Fully covered by this entry — finalize immediately rather than
       // bouncing back to the split screen for a redundant confirm tap.
-      finalize(newTenders, newChangeDue);
+      finalize(newTenders, newChangeDue, newEffectiveTotal);
       return;
     }
 
@@ -176,21 +190,20 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
   if (entryMethod) {
     const methodMeta = METHODS.find((m) => m.key === entryMethod);
     const isCash = entryMethod === 'cash';
-    const cap = capFor(entryMethod);
     const change = isCash ? round2(Math.max(0, tendered - remaining)) : 0;
-    const canConfirm = isCash ? tendered > 0 : (tendered > 0 && tendered <= cap + 0.001);
+    const canConfirm = isCash ? tendered > 0 : (tendered > 0 && tendered <= remaining + 0.001);
 
     return (
       <TenderEntryScreen
         orderNo={order.orderNo}
         title={`${methodMeta.label} Payment`}
-        amountLabel={isCash ? 'Remaining' : `Max for ${methodMeta.label}`}
-        targetAmount={isCash ? remaining : cap}
-        beforeAmount={entryMethod === 'ebt' && cookingFee > 0 && (
+        amountLabel="Remaining"
+        targetAmount={remaining}
+        beforeAmount={entryMethod === 'ebt' && !ebtUsed && cookingFee > 0 && (
           <div className="pay-split-block" style={{ marginBottom: 14 }}>
             <div className="pay-split-row">
-              <span>Cooking fee (not EBT-eligible)</span>
-              <span>{money(cookingFee)}</span>
+              <span>Cooking fee, added once EBT is used</span>
+              <span>+{money(cookingFee)}</span>
             </div>
           </div>
         )}
@@ -229,11 +242,16 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
           <div className="pay-split-methods">
             {METHODS.map(({ key, label }) => {
               const amt = tenders[key];
-              const disabled = key === 'ebt' && ebtRemainingCap <= 0;
+              const showEbtHint = key === 'ebt' && !ebtUsed && cookingFee > 0;
               return (
                 <div className="pay-split-method-row" key={key}>
-                  <button className="pay-method-btn" disabled={disabled} onClick={() => openEntry(key)}>
-                    <span className="pay-method-label">{label}</span>
+                  <button className="pay-method-btn" onClick={() => openEntry(key)}>
+                    <span>
+                      <span className="pay-method-label">{label}</span>
+                      {showEbtHint && (
+                        <span className="pay-method-hint">+{money(cookingFee)} cooking fee if used</span>
+                      )}
+                    </span>
                     {amt > 0 && <span className="pay-method-amt">{money(amt)}</span>}
                   </button>
                   {amt > 0 && (
@@ -250,14 +268,13 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
             })}
           </div>
 
-          {cookingFee > 0 && (
+          {feeApplies && (
             <div className="pay-split-block" style={{ marginTop: 14 }}>
               <div className="pay-split-row">
-                <span>Cooking fee (not EBT-eligible)</span>
+                <span>Cooking fee (EBT surcharge, paid by cash/credit)</span>
                 <div className="pay-fee-adj">
                   <button
                     className="fee-adj-btn"
-                    disabled={tenders.ebt > 0}
                     onClick={() => setCookingFee((f) => Math.max(0, f - 1))}
                   >
                     −
@@ -265,7 +282,6 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
                   <span className="pay-fee-val">{money(cookingFee)}</span>
                   <button
                     className="fee-adj-btn"
-                    disabled={tenders.ebt > 0}
                     onClick={() => setCookingFee((f) => f + 1)}
                   >
                     +
