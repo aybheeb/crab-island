@@ -373,22 +373,6 @@ input, textarea { font-family: inherit; }
 .field-required { color: var(--red); }
 .field-error-msg { font-size: .72rem; font-weight: 800; color: var(--red); margin-top: 3px; }
 
-.edit-banner {
-  background: var(--gold-soft);
-  border: 1.5px solid var(--gold);
-  color: var(--gold-deep);
-  border-radius: var(--r-sm);
-  padding: 9px 12px;
-  font-weight: 800;
-  font-size: .85rem;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.edit-banner button { background: none; border: none; color: var(--gold-deep); font-weight: 800; text-decoration: underline; font-size: .82rem; }
-
 .order-items { flex: 1 1 auto; overflow-y: auto; padding: 8px 14px 14px; min-height: 0; }
 .order-empty { text-align: center; color: var(--slate-light); padding: 48px 20px; font-weight: 700; }
 .order-empty .em-ico { font-size: 2.6rem; display: block; margin-bottom: 10px; }
@@ -676,6 +660,16 @@ input, textarea { font-family: inherit; }
   text-transform: uppercase;
   letter-spacing: .04em;
 }
+.ticket-tenders { display: flex; flex-direction: column; gap: 2px; }
+.ticket-tenders li {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  color: var(--navy);
+  font-size: .88rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .ticket-change {
   display: flex;
   justify-content: space-between;
@@ -703,6 +697,14 @@ input, textarea { font-family: inherit; }
 /* ============================================================
    Placed orders drawer
    ============================================================ */
+.po-filters { display: flex; gap: 8px; padding: 14px 22px 0; }
+.po-filter-btn {
+  background: var(--sand); border: 1.5px solid var(--line); color: var(--slate);
+  font-family: var(--font-display); font-weight: 800; font-size: .85rem;
+  padding: 7px 14px; border-radius: var(--r-pill);
+}
+.po-filter-btn:hover { border-color: var(--ocean); color: var(--ocean-deep); }
+.po-filter-btn.active { background: var(--navy); border-color: var(--navy); color: var(--white); }
 .po-list { display: flex; flex-direction: column; gap: 12px; }
 .po-empty { text-align: center; color: var(--slate-light); font-weight: 700; padding: 40px 10px; }
 .po-card { border: 1.5px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--paper); }
@@ -711,6 +713,16 @@ input, textarea { font-family: inherit; }
 .po-card .po-right { text-align: right; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 .po-card .po-total { font-family: var(--font-display); font-weight: 800; color: var(--red); font-size: 1.2rem; }
 .po-actions { display: flex; gap: 8px; }
+
+.status-badge {
+  display: inline-block; margin-top: 4px; font-family: var(--font-display);
+  font-weight: 800; font-size: .72rem; letter-spacing: .02em; text-transform: uppercase;
+  padding: 2px 9px; border-radius: var(--r-pill);
+}
+.status-paid    { background: var(--ok-soft);   color: var(--ok); }
+.status-pending { background: var(--gold-soft); color: var(--gold-deep); }
+
+.ticket-pending .ticket-pay-method { color: var(--gold-deep); }
 
 /* ============================================================
    Mobile bottom bar + drawer
@@ -864,32 +876,55 @@ input, textarea { font-family: inherit; }
   margin: 18px 0 12px;
 }
 
-.pay-methods {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+.pay-remaining-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 0 4px;
+  font-weight: 700;
+  color: var(--slate);
+  font-size: .95rem;
 }
-.pay-methods-2 { grid-template-columns: repeat(2, 1fr); }
+.pay-remaining-amt {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.3rem;
+  color: var(--gold-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-split-methods { display: flex; flex-direction: column; gap: 10px; }
+.pay-split-method-row { display: flex; align-items: center; gap: 8px; }
 
 .pay-method-btn {
+  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 20px 10px;
+  justify-content: space-between;
+  padding: 16px 18px;
   border: 2px solid var(--line);
   background: var(--paper);
   border-radius: var(--r-md);
-  min-height: 80px;
+  min-height: 64px;
   transition: all .12s;
 }
 .pay-method-btn:hover { border-color: var(--ocean); background: var(--ocean-soft); }
+.pay-method-btn:disabled { opacity: .5; }
+.pay-method-btn:disabled:hover { border-color: var(--line); background: var(--paper); }
 .pay-method-label {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 1.3rem;
   color: var(--navy);
 }
-.pay-method-btn:hover .pay-method-label { color: var(--ocean-deep); }
+.pay-method-btn:hover:not(:disabled) .pay-method-label { color: var(--ocean-deep); }
+.pay-method-amt {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--ok);
+  font-variant-numeric: tabular-nums;
+}
 
 .pay-terminal-note {
   background: var(--ocean-soft);

@@ -204,6 +204,26 @@ function buildReceiptBytes(order, copyLabel, profile) {
   parts.push(BOLD_OFF());
   parts.push(divider());
 
+  // Payment breakdown — an order can be split across multiple tenders (e.g.
+  // part cash, part EBT), so list only whichever methods actually collected
+  // money rather than assuming a single payMethod covers the whole total.
+  // Omitted for an order still awaiting payment (pending/pay-later).
+  if (order.payMethod) {
+    const payRow = (label, amt) => {
+      const amtStr = money(amt);
+      const pad = Math.max(1, 42 - label.length - amtStr.length);
+      return row(`${label}${' '.repeat(pad)}${amtStr}`);
+    };
+    if (order.tenders?.cash > 0) parts.push(payRow('Cash', order.tenders.cash));
+    if (order.tenders?.credit > 0) parts.push(payRow('Credit', order.tenders.credit));
+    if (order.tenders?.ebt > 0) parts.push(payRow('EBT', order.tenders.ebt));
+    if (order.changeDue != null) parts.push(payRow('Change Due', order.changeDue));
+    parts.push(divider());
+  } else if (order.status === 'pending') {
+    parts.push(row('** PENDING - PAY ON PICKUP **'));
+    parts.push(divider());
+  }
+
   parts.push(ALIGN_CENTER());
   parts.push(row('Thank you! Enjoy your seafood.'));
 

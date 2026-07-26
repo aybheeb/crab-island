@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { CATEGORIES, defaultCustom, unitPriceFor, money } from './data';
 import { Icon, MenuPanel, CustomModal, CATEGORY_META } from './Menu';
 import { OrderSummary, TicketModal, PlacedOrders, DailyReportModal } from './Order';
@@ -50,7 +50,6 @@ export default function App() {
   const [lines, setLines] = useState([]);
   const [orders, setOrders] = useState([]);
   const [seq, setSeq] = useState(1);
-  const [editingOrderNo, setEditingOrderNo] = useState(null);
 
   const [modalItem, setModalItem] = useState(null);
   const [ticket, setTicket] = useState(null);
@@ -68,8 +67,30 @@ export default function App() {
 
   const menuPanelRef = useRef(null);
 
+  // Restore the current day's orders (pending + paid) after a page refresh —
+  // both statuses are persisted server-side now, not just paid totals.
+  useEffect(() => {
+    fetch('/api/orders')
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success) return;
+        // ticketPrinted is a client-side-only convenience flag (not persisted)
+        // used to avoid reprinting a kitchen ticket when payment is collected
+        // later. We can't know for a restored pending order whether it was
+        // already printed, so default to false — reprinting is the safe
+        // failure mode, missing the kitchen entirely is not.
+        const restored = d.orders.map((o) => ({ ...o, ticketPrinted: o.status === 'paid' }));
+        setOrders(restored);
+        const maxNo = restored.reduce((m, o) => Math.max(m, parseInt(String(o.orderNo).replace('#', ''), 10) || 0), 0);
+        setSeq(maxNo + 1);
+      })
+      .catch((err) => flashToast(`Could not restore orders: ${err.message}`, true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const total = lines.reduce((s, l) => s + l.unit * l.custom.qty, 0);
   const itemCount = lines.reduce((n, l) => n + l.custom.qty, 0);
+  const pendingCount = orders.filter((o) => o.status === 'pending').length;
 
   const ac = ACTION_COLORS[t.actionColor] || ACTION_COLORS.gold;
   const rootStyle = {
@@ -102,70 +123,108 @@ export default function App() {
     setLines((ls) => ls.map((l) => l.uid === uid ? { ...l, custom: { ...l.custom, qty: Math.max(1, l.custom.qty + d) } } : l));
   const removeLine = (uid) => setLines((ls) => ls.filter((l) => l.uid !== uid));
 
-  const placeOrder = () => {
-    if (lines.length === 0) return;
+  // Orders are create-only once placed: no edit/void path exists for cashiers.
+  // TODO(roles/phase-2): if a correction/void flow is added, gate it
+  // MANAGER-ONLY — cashiers must never be able to mutate or void a placed
+  // order, even then. See the matching TODO in orderStore.archiveAndResetDay
+  // for the specific case (stale pending orders) that flow is meant to solve.
+  //
+  // Every order starts "pending" and is persisted immediately, whether the
+  // cashier is about to collect payment right now or the customer is paying
+  // later on pickup (phone/walk-in-ahead orders) — see handlePaymentConfirm
+  // for the one-way pending -> paid transition.
+  const createPendingOrder = () => {
+    if (lines.length === 0) return null;
     if (!cust.name.trim()) {
       setNameError(true);
       flashToast('Customer name is required', true);
-      return;
+      return null;
     }
     setNameError(false);
-    let order;
-    if (editingOrderNo) {
-      order = { orderNo: editingOrderNo, cust, lines, total, ts: Date.now() };
-      setOrders((os) => os.map((o) => o.orderNo === editingOrderNo ? order : o));
-      setEditingOrderNo(null);
-    } else {
-      const orderNo = '#' + String(seq).padStart(3, '0');
-      order = { orderNo, cust, lines, total, ts: Date.now() };
-      setOrders((os) => [...os, order]);
-      setSeq((s) => s + 1);
-    }
+    const orderNo = '#' + String(seq).padStart(3, '0');
+    const order = {
+      orderNo, cust, lines, total, ts: Date.now(),
+      status: 'pending', paidAt: null, payMethod: null, changeDue: null, tenders: null,
+      ticketPrinted: false,
+    };
+    setOrders((os) => [...os, order]);
+    setSeq((s) => s + 1);
+
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderNo: order.orderNo, cust: order.cust, lines: order.lines, total: order.total, ts: order.ts }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (!d.success) flashToast(`Order not saved: ${d.error ?? 'Unknown error'}`, true); })
+      .catch((err) => flashToast(`Order save error: ${err.message}`, true));
+
+    return order;
+  };
+
+  const printKitchenTicket = (order) => {
+    fetch('/api/print-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? { ...o, ticketPrinted: true } : o));
+          flashToast('Ticket printed');
+        } else {
+          flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
+        }
+      })
+      .catch((err) => flashToast(`Print error: ${err.message}`, true));
+  };
+
+  const placeAndPay = () => {
+    const order = createPendingOrder();
+    if (!order) return;
     setMobileOpen(false);
     setPaymentOrder(order);
   };
 
+  const placeAsPending = () => {
+    const order = createPendingOrder();
+    if (!order) return;
+    setMobileOpen(false);
+    printKitchenTicket(order);
+    startNewOrder();
+    flashToast(`${order.orderNo} saved — pending payment`);
+  };
+
+  const collectPayment = (order) => {
+    setShowPlaced(false);
+    setPaymentOrder(order);
+  };
+
   const handlePaymentConfirm = ({ kickDrawer, payMethod, changeDue, tenders }) => {
-    const order = { ...paymentOrder, payMethod, changeDue };
+    const skipKitchenTicket = paymentOrder.ticketPrinted;
+    const order = { ...paymentOrder, status: 'paid', paidAt: Date.now(), payMethod, changeDue, tenders };
     setPaymentOrder(null);
     setTicket(order);
+    setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? order : o));
 
     fetch('/api/record-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orderNo: order.orderNo,
-        ts: order.ts,
-        total: order.total,
-        tenders,
-        itemCount: order.lines.reduce((n, l) => n + l.custom.qty, 0),
-      }),
+      body: JSON.stringify({ orderNo: order.orderNo, payMethod, changeDue, tenders }),
     })
       .then((r) => r.json())
       .then((d) => { if (!d.success) flashToast(`Daily report not updated: ${d.error ?? 'Unknown error'}`, true); })
       .catch((err) => flashToast(`Daily report error: ${err.message}`, true));
-
-    const printTicket = () =>
-      fetch('/api/print-ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(order),
-      })
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.success) flashToast('Ticket printed');
-          else flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
-        })
-        .catch((err) => flashToast(`Print error: ${err.message}`, true));
 
     if (kickDrawer) {
       fetch('/api/open-drawer', { method: 'POST' })
         .then((r) => r.json())
         .then((d) => { if (!d.success) flashToast('Drawer did not open', true); })
         .catch(() => flashToast('Drawer error', true))
-        .finally(printTicket);
-    } else {
-      printTicket();
+        .finally(() => { if (!skipKitchenTicket) printKitchenTicket(order); });
+    } else if (!skipKitchenTicket) {
+      printKitchenTicket(order);
     }
   };
 
@@ -224,17 +283,8 @@ export default function App() {
   };
 
   const startNewOrder = () => {
-    setLines([]); setCust({ name: "", phone: "" }); setEditingOrderNo(null); setTicket(null);
+    setLines([]); setCust({ name: "", phone: "" }); setTicket(null);
     setNameError(false);
-  };
-
-  const recallOrder = (o) => {
-    setLines(o.lines.map((l) => ({ ...l, uid: UID++ })));
-    setCust({ ...o.cust });
-    setEditingOrderNo(o.orderNo);
-    setNameError(false);
-    setShowPlaced(false);
-    setMobileOpen(true);
   };
 
   return (
@@ -252,7 +302,7 @@ export default function App() {
               Open Drawer
             </button>
             <button className="hdr-btn" onClick={() => setShowPlaced(true)}>
-              <Icon.receipt /> Orders {orders.length > 0 && <span className="pill-count">{orders.length}</span>}
+              <Icon.receipt /> Orders {pendingCount > 0 && <span className="pill-count">{pendingCount}</span>}
             </button>
             <button className="hdr-btn" onClick={openReport}>
               <Icon.print /> Daily Report
@@ -287,9 +337,8 @@ export default function App() {
         />
         <OrderSummary
           cust={cust} setCust={setCust} lines={lines} total={total}
-          editingOrderNo={editingOrderNo}
           onQty={changeQty} onRemove={removeLine} onEditLine={openEdit}
-          onPlace={placeOrder} onCancelEdit={() => { setEditingOrderNo(null); startNewOrder(); }}
+          onPlaceAndPay={placeAndPay} onPlaceAsPending={placeAsPending}
           mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)}
           nameError={nameError} onClearNameError={() => setNameError(false)}
         />
@@ -333,8 +382,8 @@ export default function App() {
         <PlacedOrders
           orders={orders}
           onClose={() => setShowPlaced(false)}
-          onRecall={recallOrder}
           onView={(o) => { setShowPlaced(false); setTicket(o); }}
+          onCollectPayment={collectPayment}
         />
       )}
       {showReport && (

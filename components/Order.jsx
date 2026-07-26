@@ -38,7 +38,7 @@ function OrderLine({ line, onQty, onRemove, onEdit }) {
   );
 }
 
-export function OrderSummary({ cust, setCust, lines, total, editingOrderNo, onQty, onRemove, onEditLine, onPlace, onCancelEdit, mobileOpen, onCloseMobile, nameError, onClearNameError }) {
+export function OrderSummary({ cust, setCust, lines, total, onQty, onRemove, onEditLine, onPlaceAndPay, onPlaceAsPending, mobileOpen, onCloseMobile, nameError, onClearNameError }) {
   return (
     <aside className={"order-col" + (mobileOpen ? " open" : "")}>
       <div className="order-head">
@@ -53,12 +53,6 @@ export function OrderSummary({ cust, setCust, lines, total, editingOrderNo, onQt
             <Icon.x />
           </button>
         </h2>
-        {editingOrderNo && (
-          <div className="edit-banner">
-            <span>✎ Editing {cust.name ? cust.name + "'s" : "an"} order</span>
-            <button onClick={onCancelEdit}>Cancel edit</button>
-          </div>
-        )}
         <div className="cust-fields">
           <div className="field">
             <label>Customer Name <span className="field-required">*</span></label>
@@ -105,8 +99,16 @@ export function OrderSummary({ cust, setCust, lines, total, editingOrderNo, onQt
           <span className="tl">Total</span>
           <span className="tv">{money(total)}</span>
         </div>
-        <button className="btn-primary" disabled={lines.length === 0} onClick={onPlace}>
-          <Icon.receipt /> {editingOrderNo ? "Update Order" : "Place Order"}
+        <button className="btn-primary" disabled={lines.length === 0} onClick={onPlaceAndPay}>
+          <Icon.receipt /> Place & Collect Payment
+        </button>
+        <button
+          className="btn-ghost"
+          disabled={lines.length === 0}
+          onClick={onPlaceAsPending}
+          style={{ width: "100%", marginTop: 8 }}
+        >
+          <Icon.clock /> Save as Pending — Pay Later
         </button>
       </div>
     </aside>
@@ -148,15 +150,26 @@ export function TicketModal({ order, onClose, onNewOrder, onPrintReceipt }) {
             ))}
             <hr className="ticket-divider" />
             <div className="ticket-total"><span>TOTAL</span><span className="tt-v">{money(order.total)}</span></div>
-            {order.payMethod && (
+            {order.payMethod ? (
               <div className="ticket-pay-info">
                 <div className="ticket-pay-method">{order.payMethod}</div>
+                {order.tenders && (
+                  <ul className="ticket-tenders">
+                    {order.tenders.cash > 0 && <li><span>Cash</span><span>{money(order.tenders.cash)}</span></li>}
+                    {order.tenders.credit > 0 && <li><span>Credit</span><span>{money(order.tenders.credit)}</span></li>}
+                    {order.tenders.ebt > 0 && <li><span>EBT</span><span>{money(order.tenders.ebt)}</span></li>}
+                  </ul>
+                )}
                 {order.changeDue != null && (
                   <div className="ticket-change">
                     <span>Change Due</span>
                     <span className="ticket-change-amt">{money(order.changeDue)}</span>
                   </div>
                 )}
+              </div>
+            ) : order.status === 'pending' && (
+              <div className="ticket-pay-info ticket-pending">
+                <div className="ticket-pay-method">PENDING — pay on pickup</div>
               </div>
             )}
             <p className="ticket-thanks">Thank you — enjoy! 🦐</p>
@@ -172,33 +185,77 @@ export function TicketModal({ order, onClose, onNewOrder, onPrintReceipt }) {
   );
 }
 
-export function PlacedOrders({ orders, onClose, onRecall, onView }) {
+const PO_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'paid', label: 'Paid' },
+];
+
+export function PlacedOrders({ orders, onClose, onView, onCollectPayment }) {
+  const [filter, setFilter] = useState('all');
+  const pendingCount = orders.filter((o) => o.status === 'pending').length;
+  const visible = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
+
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div className="modal-head">
           <div>
             <h3>Placed Orders</h3>
-            <p>{orders.length} order{orders.length === 1 ? "" : "s"} this session</p>
+            <p>
+              {orders.length} order{orders.length === 1 ? "" : "s"} this session
+              {pendingCount > 0 ? ` · ${pendingCount} awaiting payment` : ""}
+            </p>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close"><Icon.x /></button>
         </div>
+        <div className="po-filters">
+          {PO_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              className={"po-filter-btn" + (filter === f.key ? " active" : "")}
+              onClick={() => setFilter(f.key)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <div className="modal-body scroll">
-          {orders.length === 0 ? (
-            <div className="po-empty">No orders placed yet.</div>
+          {visible.length === 0 ? (
+            <div className="po-empty">{orders.length === 0 ? "No orders placed yet." : "No orders in this view."}</div>
           ) : (
             <div className="po-list">
-              {[...orders].reverse().map((o) => (
+              {[...visible].reverse().map((o) => (
                 <div className="po-card" key={o.orderNo}>
                   <div className="po-info">
                     <h4>{o.cust.name || "Walk-In"}</h4>
                     <p>{o.orderNo} · {o.lines.reduce((n, l) => n + l.custom.qty, 0)} items · {new Date(o.ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</p>
+                    <span className={"status-badge " + (o.status === 'paid' ? "status-paid" : "status-pending")}>
+                      {o.status === 'paid' ? 'Paid' : 'Pending'}
+                    </span>
                   </div>
                   <div className="po-right">
                     <span className="po-total">{money(o.total)}</span>
+                    {/*
+                      TODO(roles/phase-2): Placed orders are otherwise view-only here — the
+                      only action a pending order can take is Collect Payment (a one-way
+                      pending -> paid transition; it never touches order contents). Cashiers
+                      must never be able to edit or void a placed order, under any
+                      circumstance (client requirement). Once roles ship, a manager-only void
+                      of a stale pending order (e.g. a no-show) is the planned way to unblock
+                      closing the day without this restriction ever extending to cashiers.
+                    */}
                     <div className="po-actions">
                       <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
-                      <button className="icon-btn" onClick={() => onRecall(o)} style={{ borderColor: "var(--ocean)", color: "var(--ocean-deep)" }}><Icon.edit /> Edit</button>
+                      {o.status === 'pending' && (
+                        <button
+                          className="icon-btn"
+                          onClick={() => onCollectPayment(o)}
+                          style={{ borderColor: "var(--gold)", color: "var(--gold-deep)" }}
+                        >
+                          <Icon.check /> Collect Payment
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -232,11 +289,11 @@ export function DailyReportModal({ report, loading, error, closing, onClose, onC
           {loading && <div className="po-empty">Loading…</div>}
           {error && <div className="field-error-msg" style={{ marginBottom: 12 }}>{error}</div>}
           {report && !loading && (
-            report.orderCount === 0 ? (
+            report.orderCount === 0 && report.pendingCount === 0 ? (
               <div className="po-empty">No orders recorded yet today.</div>
             ) : (
               <>
-                <div className="subtle-row"><span>Orders</span><span>{report.orderCount}</span></div>
+                <div className="subtle-row"><span>Orders (paid)</span><span>{report.orderCount}</span></div>
                 <div className="subtle-row"><span>Items sold</span><span>{report.itemCount}</span></div>
                 <hr className="ticket-divider" />
                 <div className="subtle-row"><span>Cash</span><span>{money(report.cash)}</span></div>
@@ -247,7 +304,18 @@ export function DailyReportModal({ report, loading, error, closing, onClose, onC
                   <span className="tl">Grand Total</span>
                   <span className="tv">{money(report.grandTotal)}</span>
                 </div>
-                {confirming && (
+                {report.pendingCount > 0 && (
+                  <div className="subtle-row" style={{ marginTop: 10 }}>
+                    <span>Pending payment ({report.pendingCount})</span>
+                    <span>{money(report.pendingTotal)}</span>
+                  </div>
+                )}
+                {report.pendingCount > 0 ? (
+                  <div className="field-error-msg" style={{ marginTop: 10 }}>
+                    {report.pendingCount} order{report.pendingCount === 1 ? "" : "s"} still awaiting payment —
+                    collect payment before closing the day.
+                  </div>
+                ) : confirming && (
                   <div className="field-error-msg" style={{ marginTop: 4 }}>
                     This prints the report and resets tomorrow's totals to zero. Confirm?
                   </div>
@@ -260,10 +328,10 @@ export function DailyReportModal({ report, loading, error, closing, onClose, onC
           <button className="btn-ghost" onClick={confirming ? () => setConfirming(false) : onClose}>
             {confirming ? "Back" : "Close"}
           </button>
-          {report && report.orderCount > 0 && (
+          {report && (report.orderCount > 0 || report.pendingCount > 0) && (
             <button
               className="btn-primary"
-              disabled={closing}
+              disabled={closing || report.pendingCount > 0}
               onClick={confirming ? onCloseDay : () => setConfirming(true)}
             >
               <Icon.print /> {closing ? "Closing…" : confirming ? "Confirm Close Day" : "Print & Close Day"}

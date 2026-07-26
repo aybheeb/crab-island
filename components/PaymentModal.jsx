@@ -3,10 +3,21 @@ import { useState } from 'react';
 import { Icon } from './Menu';
 import { money } from './data';
 
+const METHODS = [
+  { key: 'cash', label: 'Cash' },
+  { key: 'credit', label: 'Credit' },
+  { key: 'ebt', label: 'EBT' },
+];
+
 function cookingFeeFromLines(lines) {
   return lines.reduce((sum, l) =>
     (l.item.platter || l.item.bowl) ? sum + l.custom.qty : sum, 0);
 }
+
+// Money math stays in whole cents internally (tenderedRaw), but derived sums
+// (total - tenders, cap - applied, ...) can pick up float dust — round every
+// derived dollar amount before comparing or displaying it.
+const round2 = (n) => Math.round(n * 100) / 100;
 
 function Numpad({ onDigit, onBack }) {
   return (
@@ -36,10 +47,14 @@ function ModalHead({ orderNo, title, onCancel }) {
   );
 }
 
-function CashNumpadScreen({
+// Entry screen for a single method's amount. Cash allows over-tendering (and
+// shows change); credit/EBT are capped to what's actually owed for that
+// method, since a card/EBT terminal has no "change" concept here.
+function TenderEntryScreen({
   orderNo, title, amountLabel, targetAmount, beforeAmount,
-  tendered, tenderedRaw, changeDue,
+  tendered, tenderedRaw, changeDue, showChange,
   onDigit, onBack, onGoBack, onConfirm, onCancel,
+  confirmDisabled,
 }) {
   return (
     <div className="overlay">
@@ -55,7 +70,7 @@ function CashNumpadScreen({
             <span className="pad-label">Tendered</span>
             <span className="pad-tendered">{money(tendered)}</span>
           </div>
-          {tenderedRaw && changeDue >= 0 && (
+          {showChange && tenderedRaw && changeDue >= 0 && (
             <div className="pay-change-display">
               <span className="pad-label">Change</span>
               <span className="pad-change">{money(changeDue)}</span>
@@ -65,8 +80,8 @@ function CashNumpadScreen({
         </div>
         <div className="modal-foot">
           <button className="btn-ghost" onClick={onGoBack}>Back</button>
-          <button className="btn-primary" disabled={!tenderedRaw || changeDue < 0} onClick={onConfirm}>
-            Confirm &amp; Open Drawer
+          <button className="btn-primary" disabled={confirmDisabled} onClick={onConfirm}>
+            Confirm
           </button>
         </div>
       </div>
@@ -77,21 +92,123 @@ function CashNumpadScreen({
 export default function PaymentModal({ order, onConfirm, onCancel }) {
   const { lines, total } = order;
   const [cookingFee, setCookingFee] = useState(() => cookingFeeFromLines(lines));
-  const [step, setStep] = useState('method');
+  // Amount already applied per method, running toward `total`.
+  const [tenders, setTenders] = useState({ cash: 0, credit: 0, ebt: 0 });
+  const [changeDue, setChangeDue] = useState(0);
+  const [entryMethod, setEntryMethod] = useState(null); // null | 'cash' | 'credit' | 'ebt'
   const [tenderedRaw, setTenderedRaw] = useState('');
+
+  const applied = round2(tenders.cash + tenders.credit + tenders.ebt);
+  const remaining = round2(total - applied);
+  // EBT can't cover hot/prepared food (SNAP eligibility rule) — cap it to the
+  // non-cooking-fee portion of the order, adjustable via the stepper below.
+  const ebtCap = Math.max(0, round2(total - cookingFee));
+  const ebtRemainingCap = Math.max(0, round2(ebtCap - tenders.ebt));
 
   // tenderedRaw is a string of digits representing cents (e.g. "5000" = $50.00)
   const tendered = parseInt(tenderedRaw || '0', 10) / 100;
-  const ebtAmount = Math.max(0, total - cookingFee);
-  const cashTarget = step === 'ebt-cooking-cash' ? cookingFee : total;
-  const changeDue = tendered - cashTarget;
 
   const addDigit = (d) =>
     setTenderedRaw(p => (p.length >= 7 ? p : (p + d).replace(/^0+/, '') || '0'));
   const delDigit = () => setTenderedRaw(p => p.slice(0, -1));
-  const goBack = (s) => { setStep(s); setTenderedRaw(''); };
 
-  if (step === 'method') return (
+  const capFor = (method) => method === 'ebt' ? Math.min(remaining, ebtRemainingCap) : remaining;
+
+  const openEntry = (method) => {
+    setEntryMethod(method);
+    if (method === 'cash') {
+      // Cash isn't pre-filled — it depends on the physical bills handed over.
+      setTenderedRaw('');
+    } else {
+      // Credit/EBT default to covering the rest, so the common (unsplit)
+      // case is still just "pick a method, confirm" — no typing required.
+      const cap = capFor(method);
+      setTenderedRaw(cap > 0 ? String(Math.round(cap * 100)) : '');
+    }
+  };
+
+  const closeEntry = () => { setEntryMethod(null); setTenderedRaw(''); };
+
+  const removeTender = (method) => {
+    setTenders((t) => ({ ...t, [method]: 0 }));
+    if (method === 'cash') setChangeDue(0);
+  };
+
+  const finalize = (finalTenders, finalChangeDue) => {
+    const parts = [];
+    if (finalTenders.cash > 0) parts.push('Cash');
+    if (finalTenders.credit > 0) parts.push('Credit');
+    if (finalTenders.ebt > 0) parts.push('EBT');
+    onConfirm({
+      kickDrawer: finalTenders.cash > 0,
+      payMethod: parts.join(' + ') || 'Cash',
+      changeDue: finalTenders.cash > 0 ? finalChangeDue : null,
+      tenders: finalTenders,
+    });
+  };
+
+  const confirmEntry = () => {
+    const newTenders = { ...tenders };
+    let newChangeDue = changeDue;
+
+    if (entryMethod === 'cash') {
+      const applyAmt = round2(Math.min(tendered, remaining));
+      newChangeDue = round2(Math.max(0, tendered - remaining));
+      newTenders.cash = round2(newTenders.cash + applyAmt);
+    } else {
+      const applyAmt = round2(Math.min(tendered, capFor(entryMethod)));
+      newTenders[entryMethod] = round2(newTenders[entryMethod] + applyAmt);
+    }
+
+    const newRemaining = round2(total - (newTenders.cash + newTenders.credit + newTenders.ebt));
+    if (newRemaining <= 0) {
+      // Fully covered by this entry — finalize immediately rather than
+      // bouncing back to the split screen for a redundant confirm tap.
+      finalize(newTenders, newChangeDue);
+      return;
+    }
+
+    setTenders(newTenders);
+    setChangeDue(newChangeDue);
+    closeEntry();
+  };
+
+  if (entryMethod) {
+    const methodMeta = METHODS.find((m) => m.key === entryMethod);
+    const isCash = entryMethod === 'cash';
+    const cap = capFor(entryMethod);
+    const change = isCash ? round2(Math.max(0, tendered - remaining)) : 0;
+    const canConfirm = isCash ? tendered > 0 : (tendered > 0 && tendered <= cap + 0.001);
+
+    return (
+      <TenderEntryScreen
+        orderNo={order.orderNo}
+        title={`${methodMeta.label} Payment`}
+        amountLabel={isCash ? 'Remaining' : `Max for ${methodMeta.label}`}
+        targetAmount={isCash ? remaining : cap}
+        beforeAmount={entryMethod === 'ebt' && cookingFee > 0 && (
+          <div className="pay-split-block" style={{ marginBottom: 14 }}>
+            <div className="pay-split-row">
+              <span>Cooking fee (not EBT-eligible)</span>
+              <span>{money(cookingFee)}</span>
+            </div>
+          </div>
+        )}
+        tendered={tendered}
+        tenderedRaw={tenderedRaw}
+        changeDue={change}
+        showChange={isCash}
+        onDigit={addDigit}
+        onBack={delDigit}
+        onGoBack={closeEntry}
+        onConfirm={confirmEntry}
+        onCancel={onCancel}
+        confirmDisabled={!canConfirm}
+      />
+    );
+  }
+
+  return (
     <div className="overlay">
       <div className="modal pay-modal">
         <ModalHead orderNo={order.orderNo} title={order.cust.name || 'Walk-in'} onCancel={onCancel} />
@@ -100,171 +217,68 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
             <span>Total</span>
             <span className="pay-total-amt">{money(total)}</span>
           </div>
-          <p className="pay-prompt">How is the customer paying?</p>
-          <div className="pay-methods">
-            <button className="pay-method-btn" onClick={() => setStep('cash')}>
-              <span className="pay-method-label">Cash</span>
-            </button>
-            <button className="pay-method-btn" onClick={() => setStep('credit')}>
-              <span className="pay-method-label">Credit</span>
-            </button>
-            <button className="pay-method-btn" onClick={() => setStep('ebt')}>
-              <span className="pay-method-label">EBT</span>
-            </button>
+          <div className="pay-remaining-row">
+            <span>Remaining</span>
+            <span className="pay-remaining-amt">{money(remaining)}</span>
           </div>
-        </div>
-      </div>
-    </div>
-  );
 
-  if (step === 'cash') return (
-    <CashNumpadScreen
-      orderNo={order.orderNo}
-      title="Cash Payment"
-      amountLabel="Total"
-      targetAmount={total}
-      tendered={tendered}
-      tenderedRaw={tenderedRaw}
-      changeDue={changeDue}
-      onDigit={addDigit}
-      onBack={delDigit}
-      onGoBack={() => goBack('method')}
-      onConfirm={() => onConfirm({ kickDrawer: true, payMethod: 'Cash', changeDue, tenders: { cash: total, credit: 0, ebt: 0 } })}
-      onCancel={onCancel}
-    />
-  );
+          <p className="pay-prompt">
+            {applied === 0 ? 'How is the customer paying?' : 'Add another payment method for the rest'}
+          </p>
 
-  if (step === 'credit') return (
-    <div className="overlay">
-      <div className="modal pay-modal">
-        <ModalHead orderNo={order.orderNo} title="Credit Card" onCancel={onCancel} />
-        <div className="modal-body">
-          <div className="pay-terminal-note">Run card on terminal</div>
-          <div className="pay-amount-display" style={{ marginTop: 16 }}>
-            <span className="pad-label">Charge</span>
-            <span className="pad-value">{money(total)}</span>
-          </div>
-        </div>
-        <div className="modal-foot">
-          <button className="btn-ghost" onClick={() => setStep('method')}>Back</button>
-          <button
-            className="btn-primary"
-            onClick={() => onConfirm({ kickDrawer: false, payMethod: 'Credit', tenders: { cash: 0, credit: total, ebt: 0 } })}
-          >
-            Confirm &amp; Print
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (step === 'ebt') return (
-    <div className="overlay">
-      <div className="modal pay-modal">
-        <ModalHead orderNo={order.orderNo} title="EBT Payment" onCancel={onCancel} />
-        <div className="modal-body">
-          <div className="pay-split-block">
-            <div className="pay-split-row">
-              <span>EBT (run on terminal)</span>
-              <span className="pay-split-ebt">{money(ebtAmount)}</span>
-            </div>
-            <div className="pay-split-row">
-              <span>Cooking fee</span>
-              <div className="pay-fee-adj">
-                <button className="fee-adj-btn" onClick={() => setCookingFee(f => Math.max(0, f - 1))}>−</button>
-                <span className="pay-fee-val">{money(cookingFee)}</span>
-                <button className="fee-adj-btn" onClick={() => setCookingFee(f => f + 1)}>+</button>
-              </div>
-            </div>
-            <div className="pay-split-total">
-              <span>Order total</span>
-              <span>{money(total)}</span>
-            </div>
+          <div className="pay-split-methods">
+            {METHODS.map(({ key, label }) => {
+              const amt = tenders[key];
+              const disabled = key === 'ebt' && ebtRemainingCap <= 0;
+              return (
+                <div className="pay-split-method-row" key={key}>
+                  <button className="pay-method-btn" disabled={disabled} onClick={() => openEntry(key)}>
+                    <span className="pay-method-label">{label}</span>
+                    {amt > 0 && <span className="pay-method-amt">{money(amt)}</span>}
+                  </button>
+                  {amt > 0 && (
+                    <button
+                      className="icon-btn danger"
+                      onClick={() => removeTender(key)}
+                      aria-label={`Remove ${label} payment`}
+                    >
+                      <Icon.x />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {cookingFee > 0 && (
-            <>
-              <p className="pay-prompt">Cooking fee — Cash or Credit?</p>
-              <div className="pay-methods pay-methods-2">
-                <button className="pay-method-btn" onClick={() => setStep('ebt-cooking-cash')}>
-                  <span className="pay-method-label">Cash</span>
-                </button>
-                <button className="pay-method-btn" onClick={() => setStep('ebt-cooking-credit')}>
-                  <span className="pay-method-label">Credit</span>
-                </button>
+            <div className="pay-split-block" style={{ marginTop: 14 }}>
+              <div className="pay-split-row">
+                <span>Cooking fee (not EBT-eligible)</span>
+                <div className="pay-fee-adj">
+                  <button
+                    className="fee-adj-btn"
+                    disabled={tenders.ebt > 0}
+                    onClick={() => setCookingFee((f) => Math.max(0, f - 1))}
+                  >
+                    −
+                  </button>
+                  <span className="pay-fee-val">{money(cookingFee)}</span>
+                  <button
+                    className="fee-adj-btn"
+                    disabled={tenders.ebt > 0}
+                    onClick={() => setCookingFee((f) => f + 1)}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            </>
+            </div>
           )}
         </div>
         <div className="modal-foot">
-          <button className="btn-ghost" onClick={() => setStep('method')}>Back</button>
-          {cookingFee === 0 && (
-            <button
-              className="btn-primary"
-              onClick={() => onConfirm({ kickDrawer: false, payMethod: 'EBT', tenders: { cash: 0, credit: 0, ebt: ebtAmount } })}
-            >
-              Confirm &amp; Print
-            </button>
-          )}
+          <button className="btn-ghost" onClick={onCancel}>Cancel</button>
         </div>
       </div>
     </div>
   );
-
-  if (step === 'ebt-cooking-credit') return (
-    <div className="overlay">
-      <div className="modal pay-modal">
-        <ModalHead orderNo={order.orderNo} title="EBT + Credit" onCancel={onCancel} />
-        <div className="modal-body">
-          <div className="pay-terminal-note">Run both on separate terminal</div>
-          <div className="pay-split-block" style={{ marginTop: 16 }}>
-            <div className="pay-split-row">
-              <span>EBT terminal</span>
-              <span className="pay-split-ebt">{money(ebtAmount)}</span>
-            </div>
-            <div className="pay-split-row">
-              <span>Credit terminal (cooking fee)</span>
-              <span>{money(cookingFee)}</span>
-            </div>
-          </div>
-        </div>
-        <div className="modal-foot">
-          <button className="btn-ghost" onClick={() => setStep('ebt')}>Back</button>
-          <button
-            className="btn-primary"
-            onClick={() => onConfirm({ kickDrawer: false, payMethod: 'EBT + Credit', tenders: { cash: 0, credit: cookingFee, ebt: ebtAmount } })}
-          >
-            Confirm &amp; Print
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (step === 'ebt-cooking-cash') return (
-    <CashNumpadScreen
-      orderNo={order.orderNo}
-      title="Cooking Fee — Cash"
-      amountLabel="Cooking fee"
-      targetAmount={cookingFee}
-      beforeAmount={
-        <div className="pay-split-block" style={{ marginBottom: 14 }}>
-          <div className="pay-split-row">
-            <span>EBT terminal</span>
-            <span className="pay-split-ebt">{money(ebtAmount)}</span>
-          </div>
-        </div>
-      }
-      tendered={tendered}
-      tenderedRaw={tenderedRaw}
-      changeDue={changeDue}
-      onDigit={addDigit}
-      onBack={delDigit}
-      onGoBack={() => goBack('ebt')}
-      onConfirm={() => onConfirm({ kickDrawer: true, payMethod: 'EBT + Cash', changeDue, tenders: { cash: cookingFee, credit: 0, ebt: ebtAmount } })}
-      onCancel={onCancel}
-    />
-  );
-
-  return null;
 }

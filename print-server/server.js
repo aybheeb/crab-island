@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import express from 'express';
 import { printTicket, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
-import { recordOrder, getCurrentReport, archiveAndResetDay } from '../server/services/orderStore.js';
+import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay } from '../server/services/orderStore.js';
 import { money } from '../components/data.js';
 
 // Load root .env.local so PRINT_API_KEY and PORT are available without shell gymnastics
@@ -76,8 +76,9 @@ app.post('/open-drawer', async (_req, res) => {
   }
 });
 
-// Records a finalized, paid order into the current day's running sales log —
-// called right after payment confirmation, independent of ticket printing.
+// Creates a new order in the current day's running log as "pending" — placed
+// but not yet paid. Called as soon as the cashier places an order, whether
+// they're collecting payment immediately or the customer is paying later.
 app.post('/orders', (req, res) => {
   const order = req.body;
 
@@ -86,12 +87,36 @@ app.post('/orders', (req, res) => {
   }
 
   try {
-    recordOrder(order);
+    createOrder(order);
     res.json({ success: true });
   } catch (err) {
-    console.error('[print-server] Record order failed:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('[print-server] Create order failed:', err.message);
+    res.status(err.message.includes('already exists') ? 409 : 500).json({ error: err.message });
   }
+});
+
+// Marks an existing order as paid — independent of ticket printing, and the
+// only other transition an order can undergo (order contents are immutable).
+app.post('/orders/pay', (req, res) => {
+  const { orderNo, payMethod, changeDue, tenders } = req.body;
+
+  if (!orderNo) {
+    return res.status(400).json({ error: 'orderNo is required' });
+  }
+
+  try {
+    const order = markOrderPaid(orderNo, { payMethod, changeDue, tenders });
+    res.json({ success: true, order });
+  } catch (err) {
+    console.error('[print-server] Mark order paid failed:', err.message);
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
+// Full current-day order list (pending + paid) — used to restore the
+// cashier's UI state after a page refresh.
+app.get('/orders', (_req, res) => {
+  res.json({ success: true, orders: getOrders() });
 });
 
 // Read-only preview of the current (still-open) day's totals.
@@ -104,8 +129,15 @@ app.get('/report', (_req, res) => {
 // fails the day stays open so the report can be retried without losing data.
 app.post('/close-day', async (_req, res) => {
   const report = getCurrentReport();
-  if (report.orderCount === 0) {
+  if (report.orderCount === 0 && report.pendingCount === 0) {
     return res.status(400).json({ error: 'No orders recorded for the current day' });
+  }
+  // Check for pending orders before printing anything — no point printing a
+  // Z-report just to reject the close and have to reprint it later.
+  if (report.pendingCount > 0) {
+    return res.status(409).json({
+      error: `${report.pendingCount} order${report.pendingCount === 1 ? '' : 's'} still awaiting payment — collect payment before closing the day`,
+    });
   }
 
   try {

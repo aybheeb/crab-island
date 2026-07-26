@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
+// Marks a previously-created order (see /api/orders) as paid. Order contents
+// are never touched here — only the one-way "pending" -> "paid" transition.
 export async function POST(request) {
   let body;
   try {
@@ -10,8 +12,8 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  if (!body?.orderNo || !body?.ts) {
-    return NextResponse.json({ success: false, error: 'Order missing orderNo/ts' }, { status: 400 });
+  if (!body?.orderNo) {
+    return NextResponse.json({ success: false, error: 'orderNo is required' }, { status: 400 });
   }
 
   const printServerUrl = process.env.PRINT_SERVER_URL;
@@ -29,7 +31,7 @@ export async function POST(request) {
   }
 
   try {
-    const res = await fetch(`${printServerUrl}/orders`, {
+    const res = await fetch(`${printServerUrl}/orders/pay`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
