@@ -134,11 +134,15 @@ export default function App() {
   // order, even then. See the matching TODO in orderStore.archiveAndResetDay
   // for the specific case (stale pending orders) that flow is meant to solve.
   //
-  // Every order starts "pending" and is persisted immediately, whether the
-  // cashier is about to collect payment right now or the customer is paying
-  // later on pickup (phone/walk-in-ahead orders) — see handlePaymentConfirm
-  // for the one-way pending -> paid transition.
-  const createPendingOrder = () => {
+  // buildOrder() only constructs the order object (and reserves its orderNo)
+  // — it does not persist anything. "Pay later" orders are persisted right
+  // after building (see placeAsPending) since they need to survive a page
+  // refresh and the kitchen needs to see them immediately. A "pay now" order
+  // is only persisted once payment actually succeeds (see
+  // handlePaymentConfirm) — cancelling out of payment before that point
+  // never printed a ticket or told anyone anything, so it should leave no
+  // trace, not a dangling pending order nobody asked for.
+  const buildOrder = () => {
     if (lines.length === 0) return null;
     if (!cust.name.trim()) {
       setNameError(true);
@@ -147,14 +151,16 @@ export default function App() {
     }
     setNameError(false);
     const orderNo = '#' + String(seq).padStart(3, '0');
-    const order = {
+    setSeq((s) => s + 1);
+    return {
       orderNo, cust, lines, total, ts: Date.now(),
       status: 'pending', paidAt: null, payMethod: null, changeDue: null, tenders: null,
       ticketPrinted: false,
     };
-    setOrders((os) => [...os, order]);
-    setSeq((s) => s + 1);
+  };
 
+  const persistOrder = (order) => {
+    setOrders((os) => [...os, order]);
     fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -163,8 +169,6 @@ export default function App() {
       .then((r) => r.json())
       .then((d) => { if (!d.success) flashToast(`Order not saved: ${d.error ?? 'Unknown error'}`, true); })
       .catch((err) => flashToast(`Order save error: ${err.message}`, true));
-
-    return order;
   };
 
   const printKitchenTicket = (order) => {
@@ -186,7 +190,7 @@ export default function App() {
   };
 
   const placeAndPay = () => {
-    const order = createPendingOrder();
+    const order = buildOrder();
     if (!order) return;
     setMobileOpen(false);
     setPaymentFromCart(true);
@@ -194,8 +198,9 @@ export default function App() {
   };
 
   const placeAsPending = () => {
-    const order = createPendingOrder();
+    const order = buildOrder();
     if (!order) return;
+    persistOrder(order);
     setMobileOpen(false);
     printKitchenTicket(order);
     startNewOrder();
@@ -215,27 +220,49 @@ export default function App() {
     const order = { ...paymentOrder, status: 'paid', paidAt: Date.now(), payMethod, changeDue, tenders, total: settledTotal };
     setPaymentOrder(null);
     setTicket(order);
-    setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? order : o));
-    // Clear the cart now, not just on "New Order" — otherwise a cashier who
-    // just paid can hit "Back" on the ticket and land on a still-populated,
-    // fully-editable cart holding the same items they just charged for. Only
-    // do this when the cart actually built this order (paymentFromCart) —
-    // collecting payment on a different, previously-placed pending order
-    // must not wipe out an unrelated order still being built in the cart.
+
+    const recordPayment = () => {
+      fetch('/api/record-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNo: order.orderNo, payMethod, changeDue, tenders, total: settledTotal }),
+      })
+        .then((r) => r.json())
+        .then((d) => { if (!d.success) flashToast(`Daily report not updated: ${d.error ?? 'Unknown error'}`, true); })
+        .catch((err) => flashToast(`Daily report error: ${err.message}`, true));
+    };
+
     if (paymentFromCart) {
+      // This order was never persisted — placeAndPay defers that until
+      // payment actually succeeds (see buildOrder). Create it now, and only
+      // mark it paid once that create call actually lands, so the server
+      // never sees a "mark paid" for an order it doesn't know about yet.
+      // Clear the cart now, not just on "New Order" — otherwise a cashier
+      // who just paid can hit "Close" on the ticket and land on a
+      // still-populated, fully-editable cart holding the same items they
+      // just charged for.
+      setOrders((os) => [...os, order]);
       setLines([]);
       setCust({ name: "", phone: "" });
       setNameError(false);
-    }
 
-    fetch('/api/record-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderNo: order.orderNo, payMethod, changeDue, tenders, total: settledTotal }),
-    })
-      .then((r) => r.json())
-      .then((d) => { if (!d.success) flashToast(`Daily report not updated: ${d.error ?? 'Unknown error'}`, true); })
-      .catch((err) => flashToast(`Daily report error: ${err.message}`, true));
+      fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNo: order.orderNo, cust: order.cust, lines: order.lines, total: paymentOrder.total, ts: order.ts }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d.success) { flashToast(`Order not saved: ${d.error ?? 'Unknown error'}`, true); return; }
+          recordPayment();
+        })
+        .catch((err) => flashToast(`Order save error: ${err.message}`, true));
+    } else {
+      // Collecting payment on a previously-placed pending order — already
+      // exists server-side, just transition it to paid.
+      setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? order : o));
+      recordPayment();
+    }
 
     if (kickDrawer) {
       fetch('/api/open-drawer', { method: 'POST' })
@@ -324,10 +351,9 @@ export default function App() {
             <button className="hdr-btn" onClick={() => setShowPlaced(true)}>
               <Icon.receipt /> Orders {pendingCount > 0 && <span className="pill-count">{pendingCount}</span>}
             </button>
-            {/* Daily Report (and Close Day, which lives inside it) is hidden from the
-                cashier UI for now — this build is cashier-mode only. It'll move behind
-                the manager side once that role exists; the modal, state, and API routes
-                are left intact below rather than removed. */}
+            <button className="hdr-btn" onClick={openReport}>
+              <Icon.print /> Daily Report
+            </button>
           </div>
         </div>
 
