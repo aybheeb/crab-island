@@ -54,6 +54,11 @@ export default function App() {
   const [modalItem, setModalItem] = useState(null);
   const [ticket, setTicket] = useState(null);
   const [paymentOrder, setPaymentOrder] = useState(null);
+  // True when paymentOrder was just built from the live cart (placeAndPay) —
+  // false when it's a different, previously-placed pending order pulled up
+  // via collectPayment. Only the former should clear the cart on confirm;
+  // the latter could be interrupting an unrelated order still being built.
+  const [paymentFromCart, setPaymentFromCart] = useState(false);
   const [showPlaced, setShowPlaced] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [report, setReport] = useState(null);
@@ -184,6 +189,7 @@ export default function App() {
     const order = createPendingOrder();
     if (!order) return;
     setMobileOpen(false);
+    setPaymentFromCart(true);
     setPaymentOrder(order);
   };
 
@@ -198,6 +204,7 @@ export default function App() {
 
   const collectPayment = (order) => {
     setShowPlaced(false);
+    setPaymentFromCart(false);
     setPaymentOrder(order);
   };
 
@@ -209,6 +216,17 @@ export default function App() {
     setPaymentOrder(null);
     setTicket(order);
     setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? order : o));
+    // Clear the cart now, not just on "New Order" — otherwise a cashier who
+    // just paid can hit "Back" on the ticket and land on a still-populated,
+    // fully-editable cart holding the same items they just charged for. Only
+    // do this when the cart actually built this order (paymentFromCart) —
+    // collecting payment on a different, previously-placed pending order
+    // must not wipe out an unrelated order still being built in the cart.
+    if (paymentFromCart) {
+      setLines([]);
+      setCust({ name: "", phone: "" });
+      setNameError(false);
+    }
 
     fetch('/api/record-order', {
       method: 'POST',
@@ -306,9 +324,10 @@ export default function App() {
             <button className="hdr-btn" onClick={() => setShowPlaced(true)}>
               <Icon.receipt /> Orders {pendingCount > 0 && <span className="pill-count">{pendingCount}</span>}
             </button>
-            <button className="hdr-btn" onClick={openReport}>
-              <Icon.print /> Daily Report
-            </button>
+            {/* Daily Report (and Close Day, which lives inside it) is hidden from the
+                cashier UI for now — this build is cashier-mode only. It'll move behind
+                the manager side once that role exists; the modal, state, and API routes
+                are left intact below rather than removed. */}
           </div>
         </div>
 

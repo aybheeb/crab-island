@@ -176,7 +176,7 @@ export function TicketModal({ order, onClose, onNewOrder, onPrintReceipt }) {
           </div>
         </div>
         <div className="ticket-foot">
-          <button className="btn-ghost" onClick={onClose}><Icon.back /> Back</button>
+          <button className="btn-ghost" onClick={onClose}><Icon.x /> Close</button>
           <button className="btn-ghost" onClick={onPrintReceipt}><Icon.print /> Print Receipt</button>
           <button className="btn-primary" onClick={onNewOrder}><Icon.plus /> New Order</button>
         </div>
