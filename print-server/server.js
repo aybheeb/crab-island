@@ -1,6 +1,6 @@
 import './loadEnv.js';
 import express from 'express';
-import { printTicket, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
+import { printTicket, printKitchenOnly, printMerchantReceipt, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
 import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay } from '../server/services/orderStore.js';
 import { money } from '../components/data.js';
 
@@ -38,6 +38,42 @@ app.post('/print', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(`[print-server] Print failed for ORDER ${order.orderNo}:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/print-kitchen', async (req, res) => {
+  const order = req.body;
+
+  if (!order?.lines?.length) {
+    return res.status(400).json({ error: 'Order has no items' });
+  }
+
+  console.log(`[print-server] Kitchen ticket requested — ORDER ${order.orderNo} (${order.lines.length} item(s))`);
+
+  try {
+    await printKitchenOnly(order);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`[print-server] Kitchen ticket failed for ORDER ${order.orderNo}:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/print-receipt', async (req, res) => {
+  const order = req.body;
+
+  if (!order?.lines?.length) {
+    return res.status(400).json({ error: 'Order has no items' });
+  }
+
+  console.log(`[print-server] Merchant receipt requested — ORDER ${order.orderNo}`);
+
+  try {
+    await printMerchantReceipt(order);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`[print-server] Merchant receipt failed for ORDER ${order.orderNo}:`, err.message);
     res.status(500).json({ error: err.message });
   }
 });

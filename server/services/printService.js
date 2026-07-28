@@ -438,30 +438,40 @@ export async function openCashDrawer() {
   sendToFirstAvailable(CASHIER_PRINTER_NAMES, CASHIER_PROFILE.drawerKick(), 'Cash drawer kick');
 }
 
+export async function printKitchenOnly(order) {
+  sendToFirstAvailable(
+    KITCHEN_PRINTER_NAMES,
+    buildKitchenTicketBytes(order, KITCHEN_PROFILE),
+    'Kitchen ticket'
+  );
+}
+
+// Merchant copy only, by default — customer copy is printed on demand via
+// printCustomerReceipt(), since most customers decline a printed receipt.
+export async function printMerchantReceipt(order) {
+  const bytes = Buffer.concat([
+    buildReceiptBytes(order, 'MERCHANT COPY', CASHIER_PROFILE),
+    ...CASHIER_PROFILE.trailingCut(),
+  ]);
+  sendToFirstAvailable(CASHIER_PRINTER_NAMES, bytes, 'Merchant receipt');
+}
+
+// Prints both at once — used when payment is collected at order time, so the
+// kitchen ticket and merchant receipt both come out together immediately.
 export async function printTicket(order) {
   const errors = [];
 
+  // Cashier receipt first — each print is a blocking call (PowerShell spawn + spool
+  // wait), so whichever prints first finishes first. Cashier goes first so the
+  // customer isn't left waiting at the register for the kitchen ticket to finish.
   try {
-    // Cashier receipt first — each print is a blocking call (PowerShell spawn + spool
-    // wait), so whichever prints first finishes first. Cashier goes first so the
-    // customer isn't left waiting at the register for the kitchen ticket to finish.
-    // Merchant copy only, by default — customer copy is printed on demand via
-    // printCustomerReceipt(), since most customers decline a printed receipt.
-    const merchantBytes = Buffer.concat([
-      buildReceiptBytes(order, 'MERCHANT COPY', CASHIER_PROFILE),
-      ...CASHIER_PROFILE.trailingCut(),
-    ]);
-    sendToFirstAvailable(CASHIER_PRINTER_NAMES, merchantBytes, 'Merchant receipt');
+    await printMerchantReceipt(order);
   } catch (err) {
     errors.push(err.message);
   }
 
   try {
-    sendToFirstAvailable(
-      KITCHEN_PRINTER_NAMES,
-      buildKitchenTicketBytes(order, KITCHEN_PROFILE),
-      'Kitchen ticket'
-    );
+    await printKitchenOnly(order);
   } catch (err) {
     errors.push(err.message);
   }

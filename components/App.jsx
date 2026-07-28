@@ -171,7 +171,9 @@ export default function App() {
       .catch((err) => flashToast(`Order save error: ${err.message}`, true));
   };
 
-  const printKitchenTicket = (order) => {
+  // Prints kitchen ticket + cashier receipt together — used when payment is
+  // collected at order time, so both come out immediately.
+  const printCombined = (order) => {
     fetch('/api/print-ticket', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -189,6 +191,41 @@ export default function App() {
       .catch((err) => flashToast(`Print error: ${err.message}`, true));
   };
 
+  // Kitchen ticket only — used when an order is placed as pending (pay
+  // later), so the kitchen can start without waiting on payment.
+  const printKitchenOnly = (order) => {
+    fetch('/api/print-kitchen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? { ...o, ticketPrinted: true } : o));
+          flashToast('Kitchen ticket printed');
+        } else {
+          flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
+        }
+      })
+      .catch((err) => flashToast(`Print error: ${err.message}`, true));
+  };
+
+  // Cashier receipt only — used when payment is collected on an order whose
+  // kitchen ticket already printed at pending-placement time.
+  const printReceiptOnly = (order) => {
+    fetch('/api/print-receipt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(order),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success) flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
+      })
+      .catch((err) => flashToast(`Print error: ${err.message}`, true));
+  };
+
   const placeAndPay = () => {
     const order = buildOrder();
     if (!order) return;
@@ -202,7 +239,7 @@ export default function App() {
     if (!order) return;
     persistOrder(order);
     setMobileOpen(false);
-    printKitchenTicket(order);
+    printKitchenOnly(order);
     startNewOrder();
     flashToast(`${order.orderNo} saved — pending payment`);
   };
@@ -264,14 +301,21 @@ export default function App() {
       recordPayment();
     }
 
+    // If the kitchen ticket already printed at pending-placement time, only the
+    // receipt is still owed now; otherwise (paid at order time) print both.
+    const printAfterPayment = () => {
+      if (skipKitchenTicket) printReceiptOnly(order);
+      else printCombined(order);
+    };
+
     if (kickDrawer) {
       fetch('/api/open-drawer', { method: 'POST' })
         .then((r) => r.json())
         .then((d) => { if (!d.success) flashToast('Drawer did not open', true); })
         .catch(() => flashToast('Drawer error', true))
-        .finally(() => { if (!skipKitchenTicket) printKitchenTicket(order); });
-    } else if (!skipKitchenTicket) {
-      printKitchenTicket(order);
+        .finally(printAfterPayment);
+    } else {
+      printAfterPayment();
     }
   };
 
