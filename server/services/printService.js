@@ -147,6 +147,24 @@ function buildKitchenTicketBytes(order, profile) {
 
 // ── Cashier receipt (merchant / customer copy) ──────────────────────────────
 
+// Business info printed at the top of cashier receipts only — edit these three
+// lines to update what prints, nothing else in the receipt layout depends on them.
+const BUSINESS_NAME    = 'Crab Island Seafood';
+const BUSINESS_ADDRESS = '5151 Hill Ave Toledo OH 43615';
+const BUSINESS_PHONE   = '(567) 318 5356';
+
+function pushBusinessHeader(parts, profile) {
+  parts.push(ALIGN_CENTER());
+  if (profile.bigText) parts.push(DOUBLE_SIZE());
+  parts.push(BOLD_ON());
+  parts.push(row(BUSINESS_NAME));
+  if (profile.bigText) parts.push(NORMAL_SIZE());
+  parts.push(BOLD_OFF());
+  parts.push(row(BUSINESS_ADDRESS));
+  parts.push(row(BUSINESS_PHONE));
+  parts.push(divider());
+}
+
 function buildReceiptBytes(order, copyLabel, profile) {
   const { orderNo, cust, lines, total, ts } = order;
   const stamp = new Date(ts).toLocaleString('en-US', {
@@ -154,15 +172,11 @@ function buildReceiptBytes(order, copyLabel, profile) {
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
   });
 
-  const parts = [INIT(), ALIGN_CENTER()];
+  const parts = [INIT()];
+  pushBusinessHeader(parts, profile);
 
-  // Header
-  if (profile.bigText) parts.push(DOUBLE_SIZE());
-  parts.push(BOLD_ON());
-  parts.push(row('CRAB ISLAND'));
-  if (profile.bigText) parts.push(NORMAL_SIZE());
-  parts.push(BOLD_OFF());
-  parts.push(row('You buy it, we steam it or fry it.'));
+  // Copy label
+  parts.push(ALIGN_CENTER());
   parts.push(BOLD_ON());
   parts.push(row(`*** ${copyLabel} ***`));
   parts.push(BOLD_OFF());
