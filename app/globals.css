@@ -721,6 +721,7 @@ input, textarea { font-family: inherit; }
 }
 .status-paid    { background: var(--ok-soft);   color: var(--ok); }
 .status-pending { background: var(--gold-soft); color: var(--gold-deep); }
+.status-error   { background: var(--red-soft);  color: var(--red); margin-left: 6px; }
 
 .ticket-pending .ticket-pay-method { color: var(--gold-deep); }
 

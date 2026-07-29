@@ -191,7 +191,7 @@ const PO_FILTERS = [
   { key: 'paid', label: 'Paid' },
 ];
 
-export function PlacedOrders({ orders, onClose, onView, onCollectPayment }) {
+export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetrySave }) {
   const [filter, setFilter] = useState('all');
   const pendingCount = orders.filter((o) => o.status === 'pending').length;
   const visible = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
@@ -233,6 +233,7 @@ export function PlacedOrders({ orders, onClose, onView, onCollectPayment }) {
                     <span className={"status-badge " + (o.status === 'paid' ? "status-paid" : "status-pending")}>
                       {o.status === 'paid' ? 'Paid' : 'Pending'}
                     </span>
+                    {o.saveFailed && <span className="status-badge status-error">Not Saved</span>}
                   </div>
                   <div className="po-right">
                     <span className="po-total">{money(o.total)}</span>
@@ -247,6 +248,15 @@ export function PlacedOrders({ orders, onClose, onView, onCollectPayment }) {
                     */}
                     <div className="po-actions">
                       <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
+                      {o.saveFailed && (
+                        <button
+                          className="icon-btn"
+                          onClick={() => onRetrySave(o)}
+                          style={{ borderColor: "var(--red)", color: "var(--red)" }}
+                        >
+                          <Icon.check /> Retry Save
+                        </button>
+                      )}
                       {o.status === 'pending' && (
                         <button
                           className="icon-btn"

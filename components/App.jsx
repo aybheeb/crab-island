@@ -43,6 +43,32 @@ function beep() {
 
 let UID = 1;
 
+// POSTs to a print-server-backed order endpoint, retrying once after a short
+// delay on failure — covers the "first request after the tunnel/connection has
+// been idle a while" failure mode, which normally succeeds immediately on retry
+// (a genuinely down print-server won't be fixed by this, but will still fail
+// cleanly after the one retry). "already exists" from a retried create means
+// the original attempt actually landed and only its response got lost, so
+// that's treated as success rather than a real failure.
+function postWithRetry(url, body, attempt = 0) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+    .then((r) => r.json())
+    .then((d) => {
+      if (d.success || d.error?.includes('already exists')) return { success: true };
+      if (attempt < 1) return retryAfterDelay();
+      return { success: false, error: d.error ?? 'Unknown error' };
+    })
+    .catch((err) => (attempt < 1 ? retryAfterDelay() : { success: false, error: err.message }));
+
+  function retryAfterDelay() {
+    return new Promise((resolve) => setTimeout(resolve, 1500)).then(() => postWithRetry(url, body, attempt + 1));
+  }
+}
+
 export default function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
@@ -155,20 +181,40 @@ export default function App() {
     return {
       orderNo, cust, lines, total, ts: Date.now(),
       status: 'pending', paidAt: null, payMethod: null, changeDue: null, tenders: null,
-      ticketPrinted: false,
+      ticketPrinted: false, saveFailed: false,
     };
   };
 
   const persistOrder = (order) => {
     setOrders((os) => [...os, order]);
-    fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderNo: order.orderNo, cust: order.cust, lines: order.lines, total: order.total, ts: order.ts }),
-    })
-      .then((r) => r.json())
-      .then((d) => { if (!d.success) flashToast(`Order not saved: ${d.error ?? 'Unknown error'}`, true); })
-      .catch((err) => flashToast(`Order save error: ${err.message}`, true));
+    postWithRetry('/api/orders', { orderNo: order.orderNo, cust: order.cust, lines: order.lines, total: order.total, ts: order.ts })
+      .then((d) => {
+        if (d.success) return;
+        setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? { ...o, saveFailed: true } : o));
+        flashToast(`${order.orderNo} NOT saved: ${d.error} — tap Retry Save in Placed Orders`, true);
+      });
+  };
+
+  // Manual fallback for when the automatic retry in persistOrder/handlePaymentConfirm
+  // also failed (e.g. a longer outage, not just a brief cold-connection blip).
+  const retrySaveOrder = (order) => {
+    postWithRetry('/api/orders', { orderNo: order.orderNo, cust: order.cust, lines: order.lines, total: order.total, ts: order.ts })
+      .then((d) => {
+        if (!d.success) {
+          flashToast(`${order.orderNo} still not saved: ${d.error}`, true);
+          return;
+        }
+        setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? { ...o, saveFailed: false } : o));
+        flashToast(`${order.orderNo} saved`);
+        // A paid order that failed to save was also never recorded in the daily
+        // totals (that call only happens after a successful create) — catch it up.
+        if (order.status === 'paid') {
+          postWithRetry('/api/record-order', {
+            orderNo: order.orderNo, payMethod: order.payMethod, changeDue: order.changeDue,
+            tenders: order.tenders, total: order.total,
+          }).then((rd) => { if (!rd.success) flashToast(`Daily report not updated: ${rd.error}`, true); });
+        }
+      });
   };
 
   // Prints kitchen ticket + cashier receipt together — used when payment is
@@ -259,14 +305,8 @@ export default function App() {
     setTicket(order);
 
     const recordPayment = () => {
-      fetch('/api/record-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderNo: order.orderNo, payMethod, changeDue, tenders, total: settledTotal }),
-      })
-        .then((r) => r.json())
-        .then((d) => { if (!d.success) flashToast(`Daily report not updated: ${d.error ?? 'Unknown error'}`, true); })
-        .catch((err) => flashToast(`Daily report error: ${err.message}`, true));
+      postWithRetry('/api/record-order', { orderNo: order.orderNo, payMethod, changeDue, tenders, total: settledTotal })
+        .then((d) => { if (!d.success) flashToast(`Daily report not updated: ${d.error} — sales total may be off for ${order.orderNo}`, true); });
     };
 
     if (paymentFromCart) {
@@ -283,17 +323,15 @@ export default function App() {
       setCust({ name: "", phone: "" });
       setNameError(false);
 
-      fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderNo: order.orderNo, cust: order.cust, lines: order.lines, total: paymentOrder.total, ts: order.ts }),
-      })
-        .then((r) => r.json())
+      postWithRetry('/api/orders', { orderNo: order.orderNo, cust: order.cust, lines: order.lines, total: paymentOrder.total, ts: order.ts })
         .then((d) => {
-          if (!d.success) { flashToast(`Order not saved: ${d.error ?? 'Unknown error'}`, true); return; }
+          if (!d.success) {
+            setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? { ...o, saveFailed: true } : o));
+            flashToast(`${order.orderNo} NOT saved: ${d.error} — tap Retry Save in Placed Orders`, true);
+            return;
+          }
           recordPayment();
-        })
-        .catch((err) => flashToast(`Order save error: ${err.message}`, true));
+        });
     } else {
       // Collecting payment on a previously-placed pending order — already
       // exists server-side, just transition it to paid.
@@ -356,6 +394,7 @@ export default function App() {
       .then((d) => {
         if (d.success) {
           setOrders([]);
+          setSeq(1);
           setShowReport(false);
           flashToast('Day closed — report printed');
         } else {
@@ -475,6 +514,7 @@ export default function App() {
           onClose={() => setShowPlaced(false)}
           onView={(o) => { setShowPlaced(false); setTicket(o); }}
           onCollectPayment={collectPayment}
+          onRetrySave={retrySaveOrder}
         />
       )}
       {showReport && (
