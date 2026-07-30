@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { callPrintServer } from '../_lib/printServerRequest';
 
 export const runtime = 'nodejs';
 
@@ -7,44 +8,19 @@ export async function POST(request) {
   try {
     order = await request.json();
   } catch {
-    return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
-  }
-
-  if (!order?.lines?.length) {
-    return NextResponse.json({ success: false, error: 'Order has no items' }, { status: 400 });
-  }
-
-  const printServerUrl = process.env.PRINT_SERVER_URL;
-  if (!printServerUrl) {
-    console.error('[print-kitchen] PRINT_SERVER_URL is not set');
     return NextResponse.json(
-      { success: false, error: 'Print server not configured (PRINT_SERVER_URL missing)' },
-      { status: 503 }
+      { success: false, error: 'Invalid JSON body' },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 
-  const headers = { 'Content-Type': 'application/json' };
-  if (process.env.PRINT_API_KEY) {
-    headers['x-api-key'] = process.env.PRINT_API_KEY;
+  if (!order?.lines?.length) {
+    return NextResponse.json(
+      { success: false, error: 'Order has no items' },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 
-  try {
-    const res = await fetch(`${printServerUrl}/print-kitchen`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(order),
-      signal: AbortSignal.timeout(15000),
-    });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      throw new Error(data.error || `Print server returned HTTP ${res.status}`);
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error('[POST /api/print-kitchen]', err.message);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
-  }
+  const { status, body } = await callPrintServer('/api/print-kitchen', '/print-kitchen', order);
+  return NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 }

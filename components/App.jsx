@@ -69,6 +69,23 @@ function postWithRetry(url, body, attempt = 0) {
   }
 }
 
+// Turns a failed print response's `category` into a message that tells the
+// cashier whether it's a printer-server auth problem, the print server being
+// unreachable, a timeout, or something unclassified — instead of surfacing
+// the upstream's raw "Unauthorized" string for every kind of failure.
+function printErrorMessage(d) {
+  switch (d.category) {
+    case 'auth_error':
+      return `Print failed: print server rejected the request (${d.error ?? 'auth error'})`;
+    case 'gateway_error':
+      return `Print failed: could not reach the print server (${d.error ?? 'unreachable'})`;
+    case 'timeout':
+      return 'Print failed: print server timed out';
+    default:
+      return `Print failed: ${d.error ?? 'Unknown error'}`;
+  }
+}
+
 export default function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
@@ -231,7 +248,7 @@ export default function App() {
           setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? { ...o, ticketPrinted: true } : o));
           flashToast('Ticket printed');
         } else {
-          flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
+          flashToast(printErrorMessage(d), true);
         }
       })
       .catch((err) => flashToast(`Print error: ${err.message}`, true));
@@ -251,7 +268,7 @@ export default function App() {
           setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? { ...o, ticketPrinted: true } : o));
           flashToast('Kitchen ticket printed');
         } else {
-          flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
+          flashToast(printErrorMessage(d), true);
         }
       })
       .catch((err) => flashToast(`Print error: ${err.message}`, true));
@@ -267,7 +284,7 @@ export default function App() {
     })
       .then((r) => r.json())
       .then((d) => {
-        if (!d.success) flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
+        if (!d.success) flashToast(printErrorMessage(d), true);
       })
       .catch((err) => flashToast(`Print error: ${err.message}`, true));
   };
@@ -367,7 +384,7 @@ export default function App() {
       .then((r) => r.json())
       .then((d) => {
         if (d.success) flashToast('Receipt printed');
-        else flashToast(`Print failed: ${d.error ?? 'Unknown error'}`, true);
+        else flashToast(printErrorMessage(d), true);
       })
       .catch((err) => flashToast(`Print error: ${err.message}`, true));
   };

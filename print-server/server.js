@@ -3,6 +3,7 @@ import express from 'express';
 import { printTicket, printKitchenOnly, printMerchantReceipt, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
 import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay } from '../server/services/orderStore.js';
 import { money } from '../components/data.js';
+import { logger } from './logger.js';
 
 const app  = express();
 const PORT = process.env.PRINT_SERVER_PORT || 3001;
@@ -15,9 +16,16 @@ app.get('/health', (_req, res) => res.json({ ok: true, port: PORT }));
 
 // ── Auth middleware (applies to all routes below) ────────────────────────────
 app.use((req, res, next) => {
-  if (!API_KEY) return next(); // no key configured → open (dev only)
-  if (req.headers['x-api-key'] === API_KEY) return next();
+  if (!API_KEY) {
+    logger.info({ method: req.method, path: req.path, ip: req.ip, apiKeyCheck: 'skipped' }, 'request admitted (no API key configured)');
+    return next(); // no key configured → open (dev only)
+  }
+  if (req.headers['x-api-key'] === API_KEY) {
+    logger.info({ method: req.method, path: req.path, ip: req.ip, apiKeyCheck: 'passed' }, 'request authenticated');
+    return next();
+  }
   console.warn(`[print-server] Rejected request — bad API key from ${req.ip}`);
+  logger.warn({ method: req.method, path: req.path, ip: req.ip, apiKeyCheck: 'failed' }, 'request rejected — bad API key');
   res.status(401).json({ error: 'Unauthorized' });
 });
 
@@ -35,9 +43,11 @@ app.post('/print', async (req, res) => {
   try {
     await printTicket(order);
     console.log(`[print-server] ORDER ${order.orderNo} printed OK`);
+    logger.info({ orderNo: order.orderNo, target: 'cashier+kitchen', result: 'success' }, 'print ticket succeeded');
     res.json({ success: true });
   } catch (err) {
     console.error(`[print-server] Print failed for ORDER ${order.orderNo}:`, err.message);
+    logger.error({ orderNo: order.orderNo, target: 'cashier+kitchen', result: 'failure', error: err.message }, 'print ticket failed');
     res.status(500).json({ error: err.message });
   }
 });
@@ -53,9 +63,11 @@ app.post('/print-kitchen', async (req, res) => {
 
   try {
     await printKitchenOnly(order);
+    logger.info({ orderNo: order.orderNo, target: 'kitchen', result: 'success' }, 'kitchen ticket succeeded');
     res.json({ success: true });
   } catch (err) {
     console.error(`[print-server] Kitchen ticket failed for ORDER ${order.orderNo}:`, err.message);
+    logger.error({ orderNo: order.orderNo, target: 'kitchen', result: 'failure', error: err.message }, 'kitchen ticket failed');
     res.status(500).json({ error: err.message });
   }
 });
@@ -71,9 +83,11 @@ app.post('/print-receipt', async (req, res) => {
 
   try {
     await printMerchantReceipt(order);
+    logger.info({ orderNo: order.orderNo, target: 'cashier', result: 'success' }, 'merchant receipt succeeded');
     res.json({ success: true });
   } catch (err) {
     console.error(`[print-server] Merchant receipt failed for ORDER ${order.orderNo}:`, err.message);
+    logger.error({ orderNo: order.orderNo, target: 'cashier', result: 'failure', error: err.message }, 'merchant receipt failed');
     res.status(500).json({ error: err.message });
   }
 });
@@ -89,9 +103,11 @@ app.post('/print-customer-receipt', async (req, res) => {
 
   try {
     await printCustomerReceipt(order);
+    logger.info({ orderNo: order.orderNo, target: 'cashier', result: 'success' }, 'customer receipt succeeded');
     res.json({ success: true });
   } catch (err) {
     console.error(`[print-server] Customer receipt failed for ORDER ${order.orderNo}:`, err.message);
+    logger.error({ orderNo: order.orderNo, target: 'cashier', result: 'failure', error: err.message }, 'customer receipt failed');
     res.status(500).json({ error: err.message });
   }
 });
@@ -99,9 +115,11 @@ app.post('/print-customer-receipt', async (req, res) => {
 app.post('/open-drawer', async (_req, res) => {
   try {
     await openCashDrawer();
+    logger.info({ target: 'cashier', result: 'success' }, 'cash drawer kick succeeded');
     res.json({ success: true });
   } catch (err) {
     console.error('[print-server] Drawer kick failed:', err.message);
+    logger.error({ target: 'cashier', result: 'failure', error: err.message }, 'cash drawer kick failed');
     res.status(500).json({ error: err.message });
   }
 });
@@ -173,8 +191,10 @@ app.post('/close-day', async (_req, res) => {
 
   try {
     await printDailyReport(report);
+    logger.info({ target: 'cashier', result: 'success' }, 'daily report print succeeded');
   } catch (err) {
     console.error('[print-server] Daily report print failed — day NOT closed:', err.message);
+    logger.error({ target: 'cashier', result: 'failure', error: err.message }, 'daily report print failed — day not closed');
     return res.status(500).json({ error: `Print failed, day not closed: ${err.message}` });
   }
 
