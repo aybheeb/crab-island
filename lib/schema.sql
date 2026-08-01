@@ -56,3 +56,48 @@ create table if not exists login_attempts (
 
 create index if not exists login_attempts_ip_time_idx
   on login_attempts (ip, created_at);
+
+-- Menu categories (Seafood Platters, Sides, Drinks, ...). Visual styling
+-- (color/emoji) stays a code-side lookup in components/Menu.jsx keyed by
+-- name, with a generic fallback for a category that has none yet — not
+-- worth a manager-editable field for what's essentially a design decision.
+create table if not exists menu_categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  sort_order int not null default 0
+);
+
+-- One row per menu item. Mirrors the shape components/data.js's hardcoded
+-- MENU array used to have, so lib/menu.js can reshape a query result back
+-- into exactly what Menu.jsx/data.js's helpers (unitPriceFor, customChips)
+-- already expect, without changing that logic.
+--
+-- price vs sizes: an item has either a single fixed price, or a sizes
+-- array of {label, price} — never both (unitPriceFor picks whichever is
+-- set, same as it always did with the hardcoded data).
+-- no_combo_sizes: only set for items that offer a "no sides" cheaper
+-- variant (most Seafood Platters); null means that toggle doesn't apply.
+-- taxable: not wired into any checkout total yet — added now so it's there
+-- (and settable per item in the admin UI) whenever tax calculation ships.
+create table if not exists menu_items (
+  id uuid primary key default gen_random_uuid(),
+  category_id uuid not null references menu_categories(id) on delete restrict,
+  num text,
+  name text not null,
+  description text not null default '',
+  platter boolean not null default false,
+  cooking boolean not null default false,
+  bowl boolean not null default false,
+  fish_choice boolean not null default false,
+  market_price boolean not null default false,
+  seasoning boolean not null default true,
+  taxable boolean not null default false,
+  price numeric(10,2),
+  sizes jsonb,
+  no_combo_sizes jsonb,
+  active boolean not null default true,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists menu_items_category_idx on menu_items (category_id, sort_order);
