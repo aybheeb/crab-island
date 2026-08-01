@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { defaultCustom, unitPriceFor, buildCustomLine, money } from './data';
-import { Icon, MenuPanel, CustomModal, getCategoryMeta } from './Menu';
+import { CATEGORIES, defaultCustom, unitPriceFor, buildCustomLine, money } from './data';
+import { Icon, MenuPanel, CustomModal, CATEGORY_META } from './Menu';
 import { OrderSummary, TicketModal, PlacedOrders } from './Order';
 import VoidOrderModal from './VoidOrderModal';
 import CustomItemModal from './CustomItemModal';
@@ -90,7 +90,7 @@ function printErrorMessage(d) {
   }
 }
 
-export default function App({ staff, menu, categories }) {
+export default function App({ staff }) {
   const router = useRouter();
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
@@ -113,7 +113,7 @@ export default function App({ staff, menu, categories }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [nameError, setNameError] = useState(false);
-  const [activeCategory, setActiveCategory] = useState(categories[0]);
+  const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
 
   const menuPanelRef = useRef(null);
 
@@ -452,13 +452,13 @@ export default function App({ staff, menu, categories }) {
         </div>
 
         <div className="hdr-cat-nav">
-          {categories.map((cat) => (
+          {CATEGORIES.map((cat) => (
             <button
               key={cat}
               className={"cat-nav-btn" + (activeCategory === cat ? " active" : "")}
               onClick={() => menuPanelRef.current?.scrollToCategory(cat)}
             >
-              {getCategoryMeta(cat).label}
+              {CATEGORY_META[cat].label}
             </button>
           ))}
         </div>
@@ -472,8 +472,6 @@ export default function App({ staff, menu, categories }) {
       <div className="body">
         <MenuPanel
           ref={menuPanelRef}
-          menu={menu}
-          categories={categories}
           onPick={openNew}
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
