@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
-  MENU, CATEGORIES, SEASONINGS, BUTTER, COOKING, FISH_TYPES,
+  SEASONINGS, BUTTER, COOKING, FISH_TYPES,
   VEGGIES, BOWL_VEGGIES, BOWL_SAUCES,
   defaultCustom, unitPriceFor, money,
 } from './data';
@@ -17,6 +17,7 @@ export const Icon = {
   bag:    (p) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>,
   clock:  (p) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>,
   users:  (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  list:   (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>,
 };
 
 export const CATEGORY_META = {
@@ -24,7 +25,16 @@ export const CATEGORY_META = {
   "Combination Platters":{ color: "var(--red)",        bg: "var(--red-soft)",  label: "🦀 Combination Platters" },
   "Rice Bowls":          { color: "var(--gold-deep)",  bg: "var(--gold-soft)", label: "🍚 Rice Bowls"           },
   "Sides":               { color: "var(--ok)",         bg: "var(--ok-soft)",   label: "🍟 Sides"                },
+  "Drinks":              { color: "var(--ocean)",      bg: "var(--ocean-soft)",label: "🥤 Drinks"               },
 };
+
+// Categories are manager-editable now (see /manager/menu) — a brand new
+// category name won't have a hardcoded entry above, so fall back to a
+// generic style instead of crashing on CATEGORY_META[cat].
+const DEFAULT_CATEGORY_META = { color: "var(--navy)", bg: "var(--sand)", label: "◆ " };
+export function getCategoryMeta(cat) {
+  return CATEGORY_META[cat] || { ...DEFAULT_CATEGORY_META, label: DEFAULT_CATEGORY_META.label + cat };
+}
 
 function MenuCard({ item, onPick }) {
   const priceBlock = item.marketPrice ? (
@@ -56,14 +66,14 @@ function MenuCard({ item, onPick }) {
   );
 }
 
-export const MenuPanel = forwardRef(function MenuPanel({ onPick, activeCategory, onCategoryChange }, ref) {
+export const MenuPanel = forwardRef(function MenuPanel({ menu, categories, onPick, activeCategory, onCategoryChange }, ref) {
   const [q, setQ] = useState("");
   const colRef = useRef(null);
   const sectionRefs = useRef({});
 
   const term = q.trim().toLowerCase();
 
-  const filtered = MENU.filter((m) =>
+  const filtered = menu.filter((m) =>
     !term ||
     m.name.toLowerCase().includes(term) ||
     m.desc.toLowerCase().includes(term) ||
@@ -72,7 +82,7 @@ export const MenuPanel = forwardRef(function MenuPanel({ onPick, activeCategory,
     m.category.toLowerCase().includes(term)
   );
 
-  const grouped = CATEGORIES.map((cat) => ({
+  const grouped = categories.map((cat) => ({
     cat,
     items: filtered.filter((m) => m.category === cat),
   })).filter((g) => g.items.length > 0);
@@ -93,7 +103,7 @@ export const MenuPanel = forwardRef(function MenuPanel({ onPick, activeCategory,
     const onScroll = () => {
       const colRect = col.getBoundingClientRect();
       let active = null;
-      for (const cat of CATEGORIES) {
+      for (const cat of categories) {
         const el = sectionRefs.current[cat];
         if (!el) continue;
         if (el.getBoundingClientRect().top - colRect.top <= 12) active = cat;
@@ -102,7 +112,7 @@ export const MenuPanel = forwardRef(function MenuPanel({ onPick, activeCategory,
     };
     col.addEventListener('scroll', onScroll, { passive: true });
     return () => col.removeEventListener('scroll', onScroll);
-  }, [onCategoryChange]);
+  }, [onCategoryChange, categories]);
 
   return (
     <div className="menu-col scroll" ref={colRef}>
@@ -123,7 +133,7 @@ export const MenuPanel = forwardRef(function MenuPanel({ onPick, activeCategory,
         <div className="empty-menu">No items match &quot;{q}&quot;.</div>
       ) : (
         grouped.map(({ cat, items }) => {
-          const meta = CATEGORY_META[cat];
+          const meta = getCategoryMeta(cat);
           return (
             <div
               key={cat}

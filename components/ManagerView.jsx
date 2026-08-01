@@ -93,6 +93,10 @@ export default function ManagerView({ staff }) {
           <Icon.users />
           <span>Manage Staff</span>
         </button>
+        <Link href="/manager/menu" className="mgr-tile">
+          <Icon.list />
+          <span>Menu</span>
+        </Link>
       </div>
 
       {showReport && (

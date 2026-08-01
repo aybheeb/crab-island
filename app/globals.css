@@ -1144,7 +1144,8 @@ input, textarea { font-family: inherit; }
    Manager dashboard shell
    ============================================================ */
 .mgr-screen {
-  min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
   background: var(--paper);
 }
 .mgr-hdr {
@@ -1193,6 +1194,53 @@ input, textarea { font-family: inherit; }
 }
 .mgr-tile:hover { border-color: var(--ocean); }
 .mgr-tile:active { transform: translateY(1px); }
+
+/* ============================================================
+   Menu management (/manager/menu)
+   ============================================================ */
+.mgr-menu-body {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 22px 100px;
+}
+.mgr-menu-foot {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--white);
+  border-top: 1px solid var(--line);
+  padding: 14px 22px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.mgr-menu-foot:empty { display: none; }
+.mgr-menu-category { margin-bottom: 28px; }
+.mgr-menu-category-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.mgr-menu-category-head h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--navy);
+  margin: 0;
+}
+.size-row-group { display: flex; flex-direction: column; gap: 8px; }
+.size-row { display: flex; gap: 8px; align-items: center; }
+.size-row .text-input { flex: 1; }
+.check-grid { display: flex; flex-direction: column; gap: 10px; }
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--navy);
+  font-size: .92rem;
+}
+.check-row input[type="checkbox"] { width: 18px; height: 18px; }
 
 .pay-split-block {
   background: var(--paper);
