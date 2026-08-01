@@ -1,14 +1,25 @@
 -- Staff accounts (cashiers and managers), authenticated by PIN.
 -- The PIN itself is the identifier a staff member types in — there is no
--- separate username. Never store the PIN itself, only its bcrypt hash.
+-- separate username.
+--
+-- pin_hash (legacy, bcrypt, irreversible) is kept only for accounts created
+-- before PINs became manager-viewable — it can never be decrypted back into
+-- a PIN, by design of a hash. pin_encrypted (AES-256-GCM, lib/pinCipher.js)
+-- is what every new account and every PIN reset writes now, since it can be
+-- decrypted for display. A row has exactly one of the two populated;
+-- findStaffByPin/isPinTaken in lib/staffAuth.js check whichever is present.
 create table if not exists staff (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  pin_hash text not null,
+  pin_hash text,
+  pin_encrypted text,
   role text not null check (role in ('cashier', 'manager')),
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+alter table staff alter column pin_hash drop not null;
+alter table staff add column if not exists pin_encrypted text;
 
 -- One row per cashier clock-in. Orders are attributed to whichever shift
 -- was open when they were created. A cashier can only have one open shift
@@ -16,10 +27,18 @@ create table if not exists staff (
 -- here, since a partial unique index needs care with concurrent logins.
 create table if not exists shifts (
   id uuid primary key default gen_random_uuid(),
-  staff_id uuid not null references staff(id),
+  staff_id uuid not null references staff(id) on delete cascade,
   clocked_in_at timestamptz not null default now(),
   clocked_out_at timestamptz
 );
+
+-- Idempotent, and needed even after the table already exists — a fresh
+-- CREATE TABLE only runs once, but this fixes the FK on a database that had
+-- the constraint before it included "on delete cascade" (deleting a staff
+-- account was blocked entirely by their own shift history until this ran).
+alter table shifts drop constraint if exists shifts_staff_id_fkey;
+alter table shifts add constraint shifts_staff_id_fkey
+  foreign key (staff_id) references staff(id) on delete cascade;
 
 create index if not exists shifts_staff_open_idx
   on shifts (staff_id)

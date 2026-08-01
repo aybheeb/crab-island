@@ -750,6 +750,27 @@ input, textarea { font-family: inherit; }
 .po-card .po-right { text-align: right; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 .po-card .po-total { font-family: var(--font-display); font-weight: 800; color: var(--red); font-size: 1.2rem; }
 .po-void-note { margin: 4px 0 0; font-size: .78rem; font-weight: 700; color: var(--red-deep); }
+
+.staff-card {
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.staff-card-top h4 { font-family: var(--font-display); font-weight: 800; margin: 0 0 2px; font-size: 1.15rem; color: var(--navy); }
+.staff-card-top p { margin: 0; font-size: .85rem; font-weight: 700; color: var(--slate); }
+.staff-card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.staff-pin-reveal {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--navy);
+  letter-spacing: .08em;
+}
 .po-actions { display: flex; gap: 8px; }
 
 .status-badge {
@@ -761,6 +782,23 @@ input, textarea { font-family: inherit; }
 .status-pending { background: var(--gold-soft); color: var(--gold-deep); }
 .status-voided  { background: var(--red-soft);  color: var(--red-deep); }
 .status-error   { background: var(--red-soft);  color: var(--red); margin-left: 6px; }
+.status-active   { background: var(--ok-soft);  color: var(--ok); }
+.status-inactive { background: var(--sand);     color: var(--slate); }
+
+.role-toggle { display: flex; gap: 8px; }
+.role-toggle-btn {
+  flex: 1;
+  border: 1.5px solid var(--line);
+  background: var(--white);
+  color: var(--slate);
+  border-radius: var(--r-md);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .92rem;
+  padding: 12px;
+}
+.role-toggle-btn:hover { border-color: var(--ocean); color: var(--ocean-deep); }
+.role-toggle-btn.active { background: var(--navy); border-color: var(--navy); color: var(--white); }
 
 .ticket-pending .ticket-pay-method { color: var(--gold-deep); }
 
@@ -1110,7 +1148,7 @@ input, textarea { font-family: inherit; }
   background: var(--paper);
 }
 .mgr-hdr {
-  background: var(--navy);
+  background: linear-gradient(180deg, var(--red) 0%, var(--red-deep) 100%);
   padding: 18px 22px;
 }
 .mgr-hdr-inner {

@@ -5,15 +5,17 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from './Menu';
 import { DailyReportModal } from './Order';
+import StaffManagementModal from './StaffManagementModal';
 
 // Manager dashboard shell — reachable at /manager (role-gated server-side by
 // app/manager/page.jsx). Daily Report + Close Day live here now instead of
-// on the cashier register header. More manager-only tiles (void, menu
-// editing) land here as their own features ship; this is just the shell.
+// on the cashier register header. More manager-only tiles (menu editing)
+// land here as their own features ship.
 export default function ManagerView({ staff }) {
   const router = useRouter();
 
   const [showReport, setShowReport] = useState(false);
+  const [showStaff, setShowStaff] = useState(false);
   const [report, setReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState(null);
@@ -87,6 +89,10 @@ export default function ManagerView({ staff }) {
           <Icon.print />
           <span>Daily Report</span>
         </button>
+        <button className="mgr-tile" onClick={() => setShowStaff(true)}>
+          <Icon.users />
+          <span>Manage Staff</span>
+        </button>
       </div>
 
       {showReport && (
@@ -99,6 +105,8 @@ export default function ManagerView({ staff }) {
           onCloseDay={closeDay}
         />
       )}
+
+      {showStaff && <StaffManagementModal onClose={() => setShowStaff(false)} />}
 
       {toast && (
         <div className={`add-toast${toast.isError ? ' toast-error' : ''}`} key={toast.id}>
