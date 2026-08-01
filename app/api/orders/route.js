@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { verifySession, SESSION_COOKIE } from '@/lib/session';
+import { isShiftOpen } from '@/lib/shifts';
 
 export const runtime = 'nodejs';
 
@@ -33,6 +36,27 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: 'Order missing orderNo/ts' }, { status: 400 });
   }
 
+  // Attribution is derived from the verified session, never trusted from the
+  // client body — middleware already required a valid session to reach here.
+  const cookieStore = await cookies();
+  const session = await verifySession(cookieStore.get(SESSION_COOKIE)?.value);
+  if (session?.role === 'cashier' && !(await isShiftOpen(session.shiftId))) {
+    return NextResponse.json(
+      { success: false, error: 'Your shift is not open — clock in again to place orders' },
+      { status: 409 }
+    );
+  }
+
+  // Custom-priced items are a cashier capability, same as everything else on
+  // the register — no manager gate here. (Editing/adding permanent menu
+  // items is a different, still manager-only capability.)
+  const attributedBody = {
+    ...body,
+    cashierId: session?.staffId ?? null,
+    cashierName: session?.name ?? null,
+    shiftId: session?.shiftId ?? null,
+  };
+
   const printServerUrl = process.env.PRINT_SERVER_URL;
   if (!printServerUrl) return missingPrintServerResponse('POST /api/orders');
 
@@ -40,7 +64,7 @@ export async function POST(request) {
     const res = await fetch(`${printServerUrl}/orders`, {
       method: 'POST',
       headers: printServerHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(body),
+      body: JSON.stringify(attributedBody),
       signal: AbortSignal.timeout(15000),
     });
 

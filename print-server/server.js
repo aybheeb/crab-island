@@ -1,7 +1,7 @@
 import './loadEnv.js';
 import express from 'express';
 import { printTicket, printKitchenOnly, printMerchantReceipt, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
-import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay } from '../server/services/orderStore.js';
+import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay, voidOrder } from '../server/services/orderStore.js';
 import { money } from '../components/data.js';
 import { logger } from './logger.js';
 
@@ -158,6 +158,28 @@ app.post('/orders/pay', (req, res) => {
   } catch (err) {
     console.error('[print-server] Mark order paid failed:', err.message);
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
+// Voids a paid or pending order. Manager authorization already happened in
+// the Next.js API layer (step-up PIN verified there) — voidedBy/voidedByName
+// arrive here as already-established facts, not something this route checks.
+app.post('/orders/void', (req, res) => {
+  const { orderNo, voidedBy, voidedByName, reason } = req.body;
+
+  if (!orderNo) {
+    return res.status(400).json({ error: 'orderNo is required' });
+  }
+
+  try {
+    const order = voidOrder(orderNo, { voidedBy, voidedByName, reason });
+    logger.info({ orderNo, voidedBy, result: 'success' }, 'order voided');
+    res.json({ success: true, order });
+  } catch (err) {
+    console.error('[print-server] Void order failed:', err.message);
+    logger.error({ orderNo, voidedBy, result: 'failure', error: err.message }, 'void order failed');
+    const status = err.message.includes('not found') ? 404 : err.message.includes('already voided') ? 409 : 500;
+    res.status(status).json({ error: err.message });
   }
 });
 

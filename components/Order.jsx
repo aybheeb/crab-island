@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Icon } from './Menu';
-import { customChips, money } from './data';
+import { customChips, money, isCustomLine } from './data';
 
 function formatPhone(value) {
   const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -30,7 +30,9 @@ function OrderLine({ line, onQty, onRemove, onEdit }) {
           <button onClick={() => onQty(line.uid, 1)} aria-label="Increase">+</button>
         </div>
         <div className="line-actions">
-          <button className="icon-btn" onClick={() => onEdit(line)}><Icon.edit /> Edit</button>
+          {!isCustomLine(line) && (
+            <button className="icon-btn" onClick={() => onEdit(line)}><Icon.edit /> Edit</button>
+          )}
           <button className="icon-btn danger" onClick={() => onRemove(line.uid)}><Icon.trash /> Remove</button>
         </div>
       </div>
@@ -38,7 +40,7 @@ function OrderLine({ line, onQty, onRemove, onEdit }) {
   );
 }
 
-export function OrderSummary({ cust, setCust, lines, total, onQty, onRemove, onEditLine, onPlaceAndPay, onPlaceAsPending, mobileOpen, onCloseMobile, nameError, onClearNameError }) {
+export function OrderSummary({ cust, setCust, lines, total, onQty, onRemove, onEditLine, onAddCustomItem, onPlaceAndPay, onPlaceAsPending, mobileOpen, onCloseMobile, nameError, onClearNameError }) {
   return (
     <aside className={"order-col" + (mobileOpen ? " open" : "")}>
       <div className="order-head">
@@ -89,6 +91,10 @@ export function OrderSummary({ cust, setCust, lines, total, onQty, onRemove, onE
           ))
         )}
       </div>
+
+      <button className="icon-btn add-custom-btn" onClick={onAddCustomItem}>
+        <Icon.plus /> Custom Item
+      </button>
 
       <div className="order-foot">
         <div className="subtle-row">
@@ -167,6 +173,10 @@ export function TicketModal({ order, onClose, onNewOrder, onPrintReceipt }) {
                   </div>
                 )}
               </div>
+            ) : order.status === 'voided' ? (
+              <div className="ticket-pay-info ticket-pending">
+                <div className="ticket-pay-method">VOIDED{order.voidedByName ? ` by ${order.voidedByName}` : ''}</div>
+              </div>
             ) : order.status === 'pending' && (
               <div className="ticket-pay-info ticket-pending">
                 <div className="ticket-pay-method">PENDING — pay on pickup</div>
@@ -189,9 +199,10 @@ const PO_FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
   { key: 'paid', label: 'Paid' },
+  { key: 'voided', label: 'Voided' },
 ];
 
-export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetrySave }) {
+export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetrySave, onVoidOrder }) {
   const [filter, setFilter] = useState('all');
   const pendingCount = orders.filter((o) => o.status === 'pending').length;
   const visible = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
@@ -230,22 +241,16 @@ export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetr
                   <div className="po-info">
                     <h4>{o.cust.name || "Walk-In"}</h4>
                     <p>{o.orderNo} · {o.lines.reduce((n, l) => n + l.custom.qty, 0)} items · {new Date(o.ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</p>
-                    <span className={"status-badge " + (o.status === 'paid' ? "status-paid" : "status-pending")}>
-                      {o.status === 'paid' ? 'Paid' : 'Pending'}
+                    <span className={"status-badge status-" + o.status}>
+                      {o.status === 'paid' ? 'Paid' : o.status === 'voided' ? 'Voided' : 'Pending'}
                     </span>
+                    {o.status === 'voided' && o.voidedByName && (
+                      <p className="po-void-note">Voided by {o.voidedByName}{o.voidReason ? ` — ${o.voidReason}` : ''}</p>
+                    )}
                     {o.saveFailed && <span className="status-badge status-error">Not Saved</span>}
                   </div>
                   <div className="po-right">
                     <span className="po-total">{money(o.total)}</span>
-                    {/*
-                      TODO(roles/phase-2): Placed orders are otherwise view-only here — the
-                      only action a pending order can take is Collect Payment (a one-way
-                      pending -> paid transition; it never touches order contents). Cashiers
-                      must never be able to edit or void a placed order, under any
-                      circumstance (client requirement). Once roles ship, a manager-only void
-                      of a stale pending order (e.g. a no-show) is the planned way to unblock
-                      closing the day without this restriction ever extending to cashiers.
-                    */}
                     <div className="po-actions">
                       <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
                       {o.saveFailed && (
@@ -264,6 +269,21 @@ export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetr
                           style={{ borderColor: "var(--gold)", color: "var(--gold-deep)" }}
                         >
                           <Icon.check /> Collect Payment
+                        </button>
+                      )}
+                      {/*
+                        Void requires a manager PIN (step-up) every time, verified
+                        server-side in app/api/orders/void — this button being visible
+                        to a cashier isn't a security boundary, entering a manager's
+                        PIN in the modal it opens is.
+                      */}
+                      {(o.status === 'pending' || o.status === 'paid') && (
+                        <button
+                          className="icon-btn"
+                          onClick={() => onVoidOrder(o)}
+                          style={{ borderColor: "var(--red)", color: "var(--red)" }}
+                        >
+                          <Icon.x /> Void
                         </button>
                       )}
                     </div>
@@ -299,7 +319,7 @@ export function DailyReportModal({ report, loading, error, closing, onClose, onC
           {loading && <div className="po-empty">Loading…</div>}
           {error && <div className="field-error-msg" style={{ marginBottom: 12 }}>{error}</div>}
           {report && !loading && (
-            report.orderCount === 0 && report.pendingCount === 0 ? (
+            report.orderCount === 0 && report.pendingCount === 0 && report.voidedCount === 0 ? (
               <div className="po-empty">No orders recorded yet today.</div>
             ) : (
               <>
@@ -318,6 +338,12 @@ export function DailyReportModal({ report, loading, error, closing, onClose, onC
                   <div className="subtle-row" style={{ marginTop: 10 }}>
                     <span>Pending payment ({report.pendingCount})</span>
                     <span>{money(report.pendingTotal)}</span>
+                  </div>
+                )}
+                {report.voidedCount > 0 && (
+                  <div className="subtle-row" style={{ marginTop: report.pendingCount > 0 ? 2 : 10 }}>
+                    <span>Voided ({report.voidedCount})</span>
+                    <span>{money(report.voidedTotal)}</span>
                   </div>
                 )}
                 {report.pendingCount > 0 ? (

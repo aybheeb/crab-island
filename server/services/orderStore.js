@@ -40,7 +40,7 @@ function itemCountOf(order) {
 // edit or void it afterward, here or anywhere else (see the TODO in
 // components/Order.jsx) — the only thing that can still happen to it is the
 // one-way "pending" -> "paid" transition via markOrderPaid below.
-export function createOrder({ orderNo, cust, lines, total, ts }) {
+export function createOrder({ orderNo, cust, lines, total, ts, cashierId, cashierName, shiftId }) {
   if (!orderNo || !ts) throw new Error('Order missing orderNo/ts');
   const data = loadCurrent();
   if (!data.openedAt) data.openedAt = new Date().toISOString();
@@ -56,6 +56,16 @@ export function createOrder({ orderNo, cust, lines, total, ts }) {
     payMethod: null,
     changeDue: null,
     tenders: null,
+    // Whoever was logged in when the order was placed — set server-side from
+    // the staff session, not client input. Null for pre-auth orders created
+    // before the login/session system existed.
+    cashierId: cashierId ?? null,
+    cashierName: cashierName ?? null,
+    shiftId: shiftId ?? null,
+    voidedAt: null,
+    voidedBy: null,
+    voidedByName: null,
+    voidReason: null,
   });
 
   saveCurrent(data);
@@ -88,9 +98,31 @@ export function getOrders() {
   return loadCurrent().orders;
 }
 
+// Voids a paid or pending order — the only other transition an order can
+// undergo besides pending->paid. Manager authorization is enforced by the
+// API layer, not here; this just records who did it. Never deletes the
+// order or touches lines/cust/total, so it stays visible with a full audit
+// trail instead of disappearing from the day's history.
+export function voidOrder(orderNo, { voidedBy, voidedByName, reason } = {}) {
+  const data = loadCurrent();
+  const order = data.orders.find((o) => o.orderNo === orderNo);
+  if (!order) throw new Error(`Order ${orderNo} not found`);
+  if (order.status === 'voided') throw new Error(`Order ${orderNo} is already voided`);
+
+  order.status = 'voided';
+  order.voidedAt = Date.now();
+  order.voidedBy = voidedBy || null;
+  order.voidedByName = voidedByName || null;
+  order.voidReason = reason || null;
+
+  saveCurrent(data);
+  return order;
+}
+
 function buildReport(data) {
   const paid = data.orders.filter((o) => o.status === 'paid');
   const pending = data.orders.filter((o) => o.status === 'pending');
+  const voided = data.orders.filter((o) => o.status === 'voided');
   const sum = (list, fn) => list.reduce((s, o) => s + fn(o), 0);
 
   return {
@@ -105,6 +137,8 @@ function buildReport(data) {
     // Informational only — never included in the financial totals above.
     pendingCount: pending.length,
     pendingTotal: sum(pending, (o) => o.total || 0),
+    voidedCount: voided.length,
+    voidedTotal: sum(voided, (o) => o.total || 0),
   };
 }
 

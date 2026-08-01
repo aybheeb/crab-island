@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { CATEGORIES, defaultCustom, unitPriceFor, money } from './data';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { CATEGORIES, defaultCustom, unitPriceFor, buildCustomLine, money } from './data';
 import { Icon, MenuPanel, CustomModal, CATEGORY_META } from './Menu';
-import { OrderSummary, TicketModal, PlacedOrders, DailyReportModal } from './Order';
+import { OrderSummary, TicketModal, PlacedOrders } from './Order';
+import VoidOrderModal from './VoidOrderModal';
+import CustomItemModal from './CustomItemModal';
 import PaymentModal from './PaymentModal';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSlider, TweakToggle } from './TweaksPanel';
 
@@ -86,7 +90,8 @@ function printErrorMessage(d) {
   }
 }
 
-export default function App() {
+export default function App({ staff }) {
+  const router = useRouter();
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
 
   const [cust, setCust] = useState({ name: "", phone: "" });
@@ -103,11 +108,8 @@ export default function App() {
   // the latter could be interrupting an unrelated order still being built.
   const [paymentFromCart, setPaymentFromCart] = useState(false);
   const [showPlaced, setShowPlaced] = useState(false);
-  const [showReport, setShowReport] = useState(false);
-  const [report, setReport] = useState(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportError, setReportError] = useState(null);
-  const [closingDay, setClosingDay] = useState(false);
+  const [voidTarget, setVoidTarget] = useState(null);
+  const [showCustomItem, setShowCustomItem] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [nameError, setNameError] = useState(false);
@@ -152,6 +154,15 @@ export default function App() {
     setTimeout(() => setToast(null), isError ? 3500 : 1500);
   };
 
+  // Closes the shift (for a cashier) server-side and clears the session
+  // cookie, then asks the page (a server component) to re-render — it'll see
+  // no valid session and render the PIN pad in place of the app.
+  const handleLogout = () => {
+    fetch('/api/staff/logout', { method: 'POST' })
+      .then(() => router.refresh())
+      .catch((err) => flashToast(`Logout error: ${err.message}`, true));
+  };
+
   const openNew = (item) => setModalItem({ item, custom: defaultCustom(item), lineUid: null });
   const openEdit = (line) => setModalItem({ item: line.item, custom: line.custom, lineUid: line.uid });
 
@@ -170,6 +181,12 @@ export default function App() {
   const changeQty = (uid, d) =>
     setLines((ls) => ls.map((l) => l.uid === uid ? { ...l, custom: { ...l.custom, qty: Math.max(1, l.custom.qty + d) } } : l));
   const removeLine = (uid) => setLines((ls) => ls.filter((l) => l.uid !== uid));
+
+  const addCustomItem = (name, price, qty) => {
+    setLines((ls) => [...ls, buildCustomLine(UID++, name, price, qty)]);
+    setShowCustomItem(false);
+    flashToast(`${name} added`);
+  };
 
   // Orders are create-only once placed: no edit/void path exists for cashiers.
   // TODO(roles/phase-2): if a correction/void flow is added, gate it
@@ -389,39 +406,6 @@ export default function App() {
       .catch((err) => flashToast(`Print error: ${err.message}`, true));
   };
 
-  const fetchReport = () => {
-    setReportLoading(true);
-    setReportError(null);
-    fetch('/api/daily-report')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) setReport(d.report);
-        else setReportError(d.error ?? 'Failed to load report');
-      })
-      .catch((err) => setReportError(err.message))
-      .finally(() => setReportLoading(false));
-  };
-
-  const openReport = () => { setShowReport(true); fetchReport(); };
-
-  const closeDay = () => {
-    setClosingDay(true);
-    fetch('/api/close-day', { method: 'POST' })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) {
-          setOrders([]);
-          setSeq(1);
-          setShowReport(false);
-          flashToast('Day closed — report printed');
-        } else {
-          setReportError(d.error ?? 'Failed to close day');
-        }
-      })
-      .catch((err) => setReportError(err.message))
-      .finally(() => setClosingDay(false));
-  };
-
   const openDrawer = () => {
     fetch('/api/open-drawer', { method: 'POST' })
       .then((r) => r.json())
@@ -445,15 +429,25 @@ export default function App() {
           <span className="hdr-slogan">You buy it, we steam it or fry it.</span>
           <div className="hdr-spacer" />
           <div className="hdr-actions">
+            {staff && (
+              <div className="hdr-staff">
+                <span className="hdr-staff-name">{staff.name}</span>
+                <button className="hdr-btn" onClick={handleLogout}>
+                  {staff.role === 'cashier' ? 'Clock Out' : 'Log Out'}
+                </button>
+              </div>
+            )}
             <button className="hdr-btn" onClick={openDrawer}>
               Open Drawer
             </button>
             <button className="hdr-btn" onClick={() => setShowPlaced(true)}>
               <Icon.receipt /> Orders {pendingCount > 0 && <span className="pill-count">{pendingCount}</span>}
             </button>
-            <button className="hdr-btn" onClick={openReport}>
-              <Icon.print /> Daily Report
-            </button>
+            {staff?.role === 'manager' && (
+              <Link href="/manager" className="hdr-btn">
+                <Icon.print /> Manager Dashboard
+              </Link>
+            )}
           </div>
         </div>
 
@@ -485,11 +479,15 @@ export default function App() {
         <OrderSummary
           cust={cust} setCust={setCust} lines={lines} total={total}
           onQty={changeQty} onRemove={removeLine} onEditLine={openEdit}
+          onAddCustomItem={() => setShowCustomItem(true)}
           onPlaceAndPay={placeAndPay} onPlaceAsPending={placeAsPending}
           mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)}
           nameError={nameError} onClearNameError={() => setNameError(false)}
         />
       </div>
+      {showCustomItem && (
+        <CustomItemModal onClose={() => setShowCustomItem(false)} onAdd={addCustomItem} />
+      )}
 
       <div className="mobile-bar">
         <div className="mb-sum">
@@ -532,16 +530,19 @@ export default function App() {
           onView={(o) => { setShowPlaced(false); setTicket(o); }}
           onCollectPayment={collectPayment}
           onRetrySave={retrySaveOrder}
+          onVoidOrder={(o) => setVoidTarget(o)}
         />
       )}
-      {showReport && (
-        <DailyReportModal
-          report={report}
-          loading={reportLoading}
-          error={reportError}
-          closing={closingDay}
-          onClose={() => setShowReport(false)}
-          onCloseDay={closeDay}
+      {voidTarget && (
+        <VoidOrderModal
+          order={voidTarget}
+          staffRole={staff?.role}
+          onClose={() => setVoidTarget(null)}
+          onVoided={(voidedOrder) => {
+            setOrders((os) => os.map((o) => o.orderNo === voidedOrder.orderNo ? voidedOrder : o));
+            setVoidTarget(null);
+            flashToast(`${voidedOrder.orderNo} voided`);
+          }}
         />
       )}
 

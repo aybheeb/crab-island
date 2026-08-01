@@ -147,3 +147,45 @@ export function customChips(item, c) {
 }
 
 export const money = (n) => "$" + n.toFixed(2);
+
+// A manager-priced line that doesn't correspond to any MENU entry. All the
+// item flags that would otherwise trigger customChips() output (seasoning,
+// bowl, platter, ...) are explicitly off, so it renders as a clean line with
+// just a name and price — no menu-driven customization applies to it.
+export function buildCustomLine(uid, name, price, qty) {
+  return {
+    uid,
+    item: {
+      id: `custom-${uid}`,
+      num: null,
+      name,
+      desc: '',
+      category: 'Custom',
+      platter: false,
+      cooking: false,
+      bowl: false,
+      fishChoice: false,
+      marketPrice: false,
+      seasoning: false,
+      sizes: null,
+      isCustomItem: true,
+    },
+    custom: {
+      size: null,
+      seasoning: { House: false, Cajun: false, "Lemon Pepper": false, "No Seasoning": false },
+      butter: null,
+      cooking: null,
+      fishType: null,
+      fries: false,
+      veg: { Broccoli: false, Corn: false, Potatoes: false },
+      bowlVeg: null,
+      sauce: null,
+      noCombo: null,
+      qty,
+      notes: '',
+    },
+    unit: price,
+  };
+}
+
+export const isCustomLine = (line) => !!line.item?.isCustomItem;

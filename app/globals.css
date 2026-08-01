@@ -94,6 +94,14 @@ input, textarea { font-family: inherit; }
 .hdr-slogan { display: none; }
 .hdr-spacer { flex: 1; }
 .hdr-actions { display: flex; align-items: center; gap: 10px; }
+.hdr-staff { display: flex; align-items: center; gap: 8px; }
+.hdr-staff-name {
+  color: var(--white);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .9rem;
+  opacity: .92;
+}
 
 .hdr-btn {
   background: rgba(255,255,255,.16);
@@ -427,6 +435,15 @@ input, textarea { font-family: inherit; }
 }
 .icon-btn:hover { border-color: var(--ocean); color: var(--ocean-deep); }
 .icon-btn.danger:hover { border-color: var(--red); color: var(--red); background: var(--red-soft); }
+.add-custom-btn {
+  width: calc(100% - 24px);
+  margin: 0 12px 10px;
+  justify-content: center;
+  height: 44px;
+  font-size: .9rem;
+  border-style: dashed;
+  flex: 0 0 auto;
+}
 
 .order-foot {
   flex: 0 0 auto;
@@ -460,6 +477,13 @@ input, textarea { font-family: inherit; }
 .btn-primary:hover { filter: brightness(1.03); }
 .btn-primary:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--action-b, var(--gold-deep)); }
 .btn-primary:disabled { background: var(--sand); color: var(--slate-light); box-shadow: none; cursor: not-allowed; }
+.btn-primary.btn-danger {
+  background: linear-gradient(180deg, var(--red) 0%, var(--red-deep) 100%);
+  color: var(--white);
+  box-shadow: 0 4px 0 var(--red-deep), var(--shadow-md);
+}
+.btn-primary.btn-danger:active { box-shadow: 0 1px 0 var(--red-deep); }
+.btn-primary.btn-danger:disabled { background: var(--sand); color: var(--slate-light); box-shadow: none; }
 
 /* ============================================================
    Modal (shared)
@@ -597,6 +621,19 @@ input, textarea { font-family: inherit; }
 }
 .notes-input:focus { outline: none; border-color: var(--ocean); background: var(--white); box-shadow: 0 0 0 4px var(--ocean-soft); }
 
+.text-input {
+  width: 100%;
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 13px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--navy);
+  min-height: 50px;
+  background: var(--paper);
+}
+.text-input:focus { outline: none; border-color: var(--ocean); background: var(--white); box-shadow: 0 0 0 4px var(--ocean-soft); }
+
 .modal-foot {
   flex: 0 0 auto;
   border-top: 1px solid var(--line);
@@ -712,6 +749,7 @@ input, textarea { font-family: inherit; }
 .po-card .po-info p { margin: 0; font-size: .85rem; font-weight: 700; color: var(--slate); }
 .po-card .po-right { text-align: right; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 .po-card .po-total { font-family: var(--font-display); font-weight: 800; color: var(--red); font-size: 1.2rem; }
+.po-void-note { margin: 4px 0 0; font-size: .78rem; font-weight: 700; color: var(--red-deep); }
 .po-actions { display: flex; gap: 8px; }
 
 .status-badge {
@@ -721,6 +759,7 @@ input, textarea { font-family: inherit; }
 }
 .status-paid    { background: var(--ok-soft);   color: var(--ok); }
 .status-pending { background: var(--gold-soft); color: var(--gold-deep); }
+.status-voided  { background: var(--red-soft);  color: var(--red-deep); }
 .status-error   { background: var(--red-soft);  color: var(--red); margin-left: 6px; }
 
 .ticket-pending .ticket-pay-method { color: var(--gold-deep); }
@@ -996,6 +1035,126 @@ input, textarea { font-family: inherit; }
 .pay-numpad-key:active { background: var(--ocean-soft); transform: translateY(1px); }
 .pay-numpad-back { background: var(--sand); border-color: var(--line-strong); }
 .pay-numpad-back:hover { background: var(--red-soft); border-color: var(--red); color: var(--red); }
+
+/* ============================================================
+   Login (staff PIN pad)
+   ============================================================ */
+.login-screen {
+  position: fixed; inset: 0;
+  background: var(--header-bg, linear-gradient(180deg, var(--red) 0%, var(--red-deep) 100%));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.login-card {
+  background: var(--white);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 360px;
+  padding: 28px 24px;
+  text-align: center;
+  animation: pop .18s cubic-bezier(.2,.8,.3,1.2);
+}
+.login-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.7rem;
+  color: var(--navy);
+  margin: 0;
+}
+.login-sub {
+  margin: 6px 0 18px;
+  color: var(--slate);
+  font-weight: 600;
+  font-size: .92rem;
+}
+.login-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 22px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.login-dots-placeholder {
+  color: var(--slate-light);
+  font-weight: 600;
+  font-size: .85rem;
+}
+.login-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--navy);
+  display: inline-block;
+}
+.login-error {
+  background: var(--red-soft);
+  color: var(--red-deep);
+  font-weight: 700;
+  font-size: .88rem;
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+.login-numpad { margin-top: 4px; }
+.login-submit { width: 100%; margin-top: 16px; }
+
+/* ============================================================
+   Manager dashboard shell
+   ============================================================ */
+.mgr-screen {
+  min-height: 100vh;
+  background: var(--paper);
+}
+.mgr-hdr {
+  background: var(--navy);
+  padding: 18px 22px;
+}
+.mgr-hdr-inner {
+  display: flex;
+  align-items: center;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.mgr-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--white);
+  margin: 0;
+}
+.mgr-body {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 28px 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.mgr-tile {
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: 28px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  text-align: center;
+  text-decoration: none;
+  transition: border-color .12s, transform .08s;
+}
+.mgr-tile:hover { border-color: var(--ocean); }
+.mgr-tile:active { transform: translateY(1px); }
 
 .pay-split-block {
   background: var(--paper);

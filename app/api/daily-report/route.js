@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
+import { requireManagerSession } from '@/lib/requireRole';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
+  const { error: authError } = await requireManagerSession();
+  if (authError) return authError;
+
   const printServerUrl = process.env.PRINT_SERVER_URL;
   if (!printServerUrl) {
     console.error('[daily-report] PRINT_SERVER_URL is not set');
