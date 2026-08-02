@@ -1351,6 +1351,35 @@ input, textarea { font-family: inherit; }
 .fee-adj-btn:hover { border-color: var(--ocean); background: var(--foam); }
 
 /* ============================================================
+   Reports charts (/manager/reports)
+   ============================================================ */
+.cat-bars { display: flex; flex-direction: column; gap: 12px; }
+.cat-bar-label {
+  display: flex; justify-content: space-between;
+  font-size: .85rem; font-weight: 700; color: var(--slate);
+  margin-bottom: 5px;
+}
+.cat-bar-track {
+  height: 14px;
+  background: var(--sand);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.cat-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ocean) 0%, var(--ocean-deep) 100%);
+  border-radius: var(--r-pill);
+  transition: width .2s;
+}
+.trend-chart-wrap { width: 100%; }
+.trend-chart { width: 100%; height: 140px; display: block; }
+.trend-chart-labels {
+  display: flex; justify-content: space-between;
+  font-size: .78rem; font-weight: 700; color: var(--slate-light);
+  margin-top: 6px;
+}
+
+/* ============================================================
    Print — 80mm thermal receipt
    ============================================================ */
 @media print {
