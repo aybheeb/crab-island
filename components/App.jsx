@@ -47,6 +47,32 @@ function beep() {
 
 let UID = 1;
 
+// Merges a fresh GET /api/orders response into local state — used both for
+// the initial mount restore and every poll after, so an order placed from
+// another device (e.g. a phone) shows up here without a manual reload.
+// A blind replace would lose two things the server doesn't track:
+//   - ticketPrinted/saveFailed are client-only convenience flags; resetting
+//     ticketPrinted on every poll would make the payment flow think a
+//     kitchen ticket was never printed and print a duplicate.
+//   - an order this device just placed optimistically (setOrders ran before
+//     its POST resolved) might not be in the server's response yet — drop
+//     it and it would flicker out of the list until the POST catches up.
+function mergeOrders(prevOrders, serverOrders) {
+  const remaining = new Map(serverOrders.map((o) => [o.orderNo, o]));
+  const merged = prevOrders.map((prev) => {
+    const fromServer = remaining.get(prev.orderNo);
+    if (!fromServer) return prev; // not visible server-side yet — keep the optimistic copy
+    remaining.delete(prev.orderNo);
+    return { ...fromServer, ticketPrinted: prev.ticketPrinted, saveFailed: prev.saveFailed };
+  });
+  for (const fresh of remaining.values()) {
+    merged.push({ ...fresh, ticketPrinted: fresh.status === 'paid', saveFailed: false });
+  }
+  return merged;
+}
+
+const ORDER_POLL_MS = 10000;
+
 // POSTs to a print-server-backed order endpoint, retrying once after a short
 // delay on failure — covers the "first request after the tunnel/connection has
 // been idle a while" failure mode, which normally succeeds immediately on retry
@@ -121,24 +147,35 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
 
   const menuPanelRef = useRef(null);
 
-  // Restore the current day's orders (pending + paid) after a page refresh —
-  // both statuses are persisted server-side now, not just paid totals.
+  // Restore the current day's orders (pending + paid) on mount, then keep
+  // polling — an order placed from another device (e.g. a phone) must show
+  // up here on its own, not only after a manual reload. Also re-syncs
+  // immediately whenever the tab regains focus, same pattern as the menu
+  // refresh below. seq is bumped past whatever the merge reveals, so this
+  // device never reuses an order number another device already took.
   useEffect(() => {
-    fetch('/api/orders')
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.success) return;
-        // ticketPrinted is a client-side-only convenience flag (not persisted)
-        // used to avoid reprinting a kitchen ticket when payment is collected
-        // later. We can't know for a restored pending order whether it was
-        // already printed, so default to false — reprinting is the safe
-        // failure mode, missing the kitchen entirely is not.
-        const restored = d.orders.map((o) => ({ ...o, ticketPrinted: o.status === 'paid' }));
-        setOrders(restored);
-        const maxNo = restored.reduce((m, o) => Math.max(m, parseInt(String(o.orderNo).replace('#', ''), 10) || 0), 0);
-        setSeq(maxNo + 1);
-      })
-      .catch((err) => flashToast(`Could not restore orders: ${err.message}`, true));
+    const sync = () => {
+      fetch('/api/orders')
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d.success) return;
+          setOrders((prev) => {
+            const merged = mergeOrders(prev, d.orders);
+            const maxNo = merged.reduce((m, o) => Math.max(m, parseInt(String(o.orderNo).replace('#', ''), 10) || 0), 0);
+            setSeq((s) => Math.max(s, maxNo + 1));
+            return merged;
+          });
+        })
+        .catch((err) => flashToast(`Could not sync orders: ${err.message}`, true));
+    };
+    sync();
+    const id = setInterval(sync, ORDER_POLL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') sync(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
