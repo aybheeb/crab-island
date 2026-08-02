@@ -23,6 +23,7 @@ function emptyForm(categoryId) {
     fishChoice: false,
     seasoning: true,
     taxable: false,
+    ebtEligible: true,
   };
 }
 
@@ -43,6 +44,7 @@ function formFromItem(item) {
     fishChoice: !!item.fishChoice,
     seasoning: item.seasoning !== false,
     taxable: !!item.taxable,
+    ebtEligible: item.ebtEligible !== false,
   };
 }
 
@@ -166,6 +168,7 @@ export default function MenuManagementView({ staff }) {
       marketPrice: form.pricingMode === 'market',
       seasoning: form.seasoning,
       taxable: form.taxable,
+      ebtEligible: form.ebtEligible,
     };
     if (form.pricingMode === 'sizes') {
       payload.sizes = form.sizes
@@ -317,6 +320,9 @@ export default function MenuManagementView({ staff }) {
                               ? item.sizes.map((s) => `${s.label} ${money(s.price)}`).join(' · ')
                               : money(item.price)}
                           </p>
+                          {item.ebtEligible === false && (
+                            <span className="status-badge status-inactive">No EBT</span>
+                          )}
                         </div>
                         {deleteConfirmId === item.id ? (
                           <div className="staff-card-actions">
@@ -413,6 +419,7 @@ export default function MenuManagementView({ staff }) {
                 <label className="check-row"><input type="checkbox" checked={form.fishChoice} onChange={(e) => setForm({ ...form, fishChoice: e.target.checked })} /> Fish substitution choice</label>
                 <label className="check-row"><input type="checkbox" checked={form.seasoning} onChange={(e) => setForm({ ...form, seasoning: e.target.checked })} /> Show seasoning options</label>
                 <label className="check-row"><input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} /> Taxable</label>
+                <label className="check-row"><input type="checkbox" checked={form.ebtEligible} onChange={(e) => setForm({ ...form, ebtEligible: e.target.checked })} /> EBT Eligible</label>
               </div>
             </div>
 

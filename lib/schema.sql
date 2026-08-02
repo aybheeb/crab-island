@@ -92,6 +92,7 @@ create table if not exists menu_items (
   market_price boolean not null default false,
   seasoning boolean not null default true,
   taxable boolean not null default false,
+  ebt_eligible boolean not null default true,
   price numeric(10,2),
   sizes jsonb,
   no_combo_sizes jsonb,
@@ -101,3 +102,9 @@ create table if not exists menu_items (
 );
 
 create index if not exists menu_items_category_idx on menu_items (category_id, sort_order);
+
+-- Idempotent, needed for databases where menu_items already existed before
+-- ebt_eligible was added — a fresh CREATE TABLE only runs once. Defaults to
+-- true so existing items keep working exactly as before until a manager
+-- explicitly unchecks it for something like a sweetened drink.
+alter table menu_items add column if not exists ebt_eligible boolean not null default true;
