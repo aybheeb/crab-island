@@ -68,6 +68,7 @@ export default function ReportsView({ staff }) {
   const [preset, setPreset] = useState('today');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [itemSearch, setItemSearch] = useState('');
 
   const [sales, setSales] = useState(null);
   const [items, setItems] = useState(null);
@@ -112,6 +113,10 @@ export default function ReportsView({ staff }) {
     if (preset === 'custom' && (!customFrom || !customTo)) return;
     load();
   }, [preset, customFrom, customTo, load]);
+
+  const filteredItems = items?.filter((it) =>
+    it.name.toLowerCase().includes(itemSearch.trim().toLowerCase())
+  ) ?? [];
 
   return (
     <div className="mgr-screen">
@@ -201,14 +206,29 @@ export default function ReportsView({ staff }) {
 
               {items?.length > 0 && (
                 <div className="mgr-menu-category">
-                  <div className="mgr-menu-category-head"><h3>Best Sellers</h3></div>
+                  <div className="mgr-menu-category-head">
+                    <h3>Best Sellers</h3>
+                    <div className="search-wrap">
+                      <Icon.search />
+                      <input
+                        className="search-input"
+                        placeholder="Search items…"
+                        value={itemSearch}
+                        onChange={(e) => setItemSearch(e.target.value)}
+                      />
+                    </div>
+                  </div>
                   <div className="staff-card">
-                    {items.map((it, i) => (
-                      <div className="subtle-row" key={`${it.name}-${it.category}-${i}`}>
-                        <span>{it.name} <span style={{ color: 'var(--slate-light)' }}>× {it.qty}</span></span>
-                        <span>{money(it.revenue)}</span>
-                      </div>
-                    ))}
+                    {filteredItems.length === 0 ? (
+                      <div className="po-empty">No items match "{itemSearch}".</div>
+                    ) : (
+                      filteredItems.map((it, i) => (
+                        <div className="subtle-row" key={`${it.name}-${it.category}-${i}`}>
+                          <span>{it.name} <span style={{ color: 'var(--slate-light)' }}>× {it.qty}</span></span>
+                          <span>{money(it.revenue)}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
