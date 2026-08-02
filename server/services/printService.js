@@ -81,7 +81,7 @@ function detectProfile(printerNames) {
 // ── Kitchen ticket ───────────────────────────────────────────────────────────
 
 function buildKitchenTicketBytes(order, profile) {
-  const { orderNo, cust, lines, ts } = order;
+  const { orderNo, cust, lines, ts, cashierName } = order;
   const stamp = new Date(ts).toLocaleString('en-US', {
     month: '2-digit', day: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
@@ -113,6 +113,7 @@ function buildKitchenTicketBytes(order, profile) {
 
   if (cust.phone) parts.push(row(`Ph: ${cust.phone}`));
   parts.push(row(`Printed: ${stamp}`));
+  if (cashierName) parts.push(row(`Cashier: ${cashierName}`));
   parts.push(divider());
 
   for (const l of lines) {
@@ -166,7 +167,7 @@ function pushBusinessHeader(parts, profile) {
 }
 
 function buildReceiptBytes(order, copyLabel, profile) {
-  const { orderNo, cust, lines, total, ts } = order;
+  const { orderNo, cust, lines, total, ts, cashierName } = order;
   const stamp = new Date(ts).toLocaleString('en-US', {
     month: '2-digit', day: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
@@ -191,6 +192,7 @@ function buildReceiptBytes(order, copyLabel, profile) {
 
   if (cust.phone) parts.push(row(`Ph: ${cust.phone}`));
   parts.push(row(stamp));
+  if (cashierName) parts.push(row(`Cashier: ${cashierName}`));
   parts.push(divider());
 
   // Items with prices
