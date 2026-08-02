@@ -23,7 +23,6 @@ function emptyForm(categoryId) {
     fishChoice: false,
     seasoning: true,
     taxable: false,
-    active: true,
   };
 }
 
@@ -44,7 +43,6 @@ function formFromItem(item) {
     fishChoice: !!item.fishChoice,
     seasoning: item.seasoning !== false,
     taxable: !!item.taxable,
-    active: item.active !== false,
   };
 }
 
@@ -82,8 +80,8 @@ function SizeRows({ rows, onChange, label }) {
   );
 }
 
-// Manager-only menu editor: add/edit/deactivate/delete items, add
-// categories. Reachable at /manager/menu (role-gated server-side).
+// Manager-only menu editor: add/edit/delete items, add/delete categories.
+// Reachable at /manager/menu (role-gated server-side).
 export default function MenuManagementView({ staff }) {
   const router = useRouter();
 
@@ -102,6 +100,7 @@ export default function MenuManagementView({ staff }) {
   const [categoryBusy, setCategoryBusy] = useState(false);
 
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deleteCategoryConfirmId, setDeleteCategoryConfirmId] = useState(null);
   const [toast, setToast] = useState(null);
 
   const flashToast = (msg, isError = false) => {
@@ -167,7 +166,6 @@ export default function MenuManagementView({ staff }) {
       marketPrice: form.pricingMode === 'market',
       seasoning: form.seasoning,
       taxable: form.taxable,
-      active: form.active,
     };
     if (form.pricingMode === 'sizes') {
       payload.sizes = form.sizes
@@ -208,20 +206,6 @@ export default function MenuManagementView({ staff }) {
       .catch((err) => { setFormError(err.message); setBusy(false); });
   };
 
-  const toggleActive = (item) => {
-    fetch(`/api/menu-items/${item.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: !item.active }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.success) { setListError(d.error ?? 'Failed to update'); return; }
-        loadData();
-      })
-      .catch((err) => setListError(err.message));
-  };
-
   const deleteItem = (item) => {
     fetch(`/api/menu-items/${item.id}`, { method: 'DELETE' })
       .then((r) => r.json())
@@ -249,6 +233,17 @@ export default function MenuManagementView({ staff }) {
         loadData();
       })
       .catch((err) => { flashToast(err.message, true); setCategoryBusy(false); });
+  };
+
+  const deleteCategory = (cat) => {
+    fetch(`/api/menu-categories/${cat.id}`, { method: 'DELETE' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success) { flashToast(d.error ?? 'Failed to delete category', true); setDeleteCategoryConfirmId(null); return; }
+        setDeleteCategoryConfirmId(null);
+        loadData();
+      })
+      .catch((err) => { flashToast(err.message, true); setDeleteCategoryConfirmId(null); });
   };
 
   const itemsByCategory = categories && items
@@ -294,12 +289,25 @@ export default function MenuManagementView({ staff }) {
               <div className="mgr-menu-category" key={cat.id}>
                 <div className="mgr-menu-category-head">
                   <h3>{cat.name}</h3>
-                  <button className="icon-btn" onClick={() => startAdd(cat.id)}><Icon.plus /> Add Item</button>
+                  <div className="staff-card-actions">
+                    <button className="icon-btn" onClick={() => startAdd(cat.id)}><Icon.plus /> Add Item</button>
+                    {deleteCategoryConfirmId === cat.id ? (
+                      <>
+                        <span className="field-error-msg" style={{ margin: 0 }}>Delete category?</span>
+                        <button className="icon-btn" onClick={() => setDeleteCategoryConfirmId(null)}>Cancel</button>
+                        <button className="icon-btn" style={{ borderColor: 'var(--red)', color: 'var(--red)' }} onClick={() => deleteCategory(cat)}>
+                          <Icon.trash /> Confirm
+                        </button>
+                      </>
+                    ) : (
+                      <button className="icon-btn" onClick={() => setDeleteCategoryConfirmId(cat.id)}><Icon.trash /> Delete Category</button>
+                    )}
+                  </div>
                 </div>
                 {catItems.length === 0 ? (
                   <div className="po-empty">No items in this category yet.</div>
                 ) : (
-                  <div className="po-list">
+                  <div className="mgr-menu-grid">
                     {catItems.map((item) => (
                       <div className="staff-card" key={item.id}>
                         <div className="staff-card-top">
@@ -309,9 +317,6 @@ export default function MenuManagementView({ staff }) {
                               ? item.sizes.map((s) => `${s.label} ${money(s.price)}`).join(' · ')
                               : money(item.price)}
                           </p>
-                          <span className={`status-badge ${item.active ? 'status-active' : 'status-inactive'}`}>
-                            {item.active ? 'Active' : 'Deactivated'}
-                          </span>
                         </div>
                         {deleteConfirmId === item.id ? (
                           <div className="staff-card-actions">
@@ -324,13 +329,6 @@ export default function MenuManagementView({ staff }) {
                         ) : (
                           <div className="staff-card-actions">
                             <button className="icon-btn" onClick={() => startEdit(item)}><Icon.edit /> Edit</button>
-                            <button
-                              className="icon-btn"
-                              onClick={() => toggleActive(item)}
-                              style={item.active ? { borderColor: 'var(--red)', color: 'var(--red)' } : { borderColor: 'var(--ok)', color: 'var(--ok)' }}
-                            >
-                              {item.active ? <><Icon.x /> Deactivate</> : <><Icon.check /> Reactivate</>}
-                            </button>
                             <button className="icon-btn" onClick={() => setDeleteConfirmId(item.id)}><Icon.trash /> Delete</button>
                           </div>
                         )}
@@ -415,9 +413,6 @@ export default function MenuManagementView({ staff }) {
                 <label className="check-row"><input type="checkbox" checked={form.fishChoice} onChange={(e) => setForm({ ...form, fishChoice: e.target.checked })} /> Fish substitution choice</label>
                 <label className="check-row"><input type="checkbox" checked={form.seasoning} onChange={(e) => setForm({ ...form, seasoning: e.target.checked })} /> Show seasoning options</label>
                 <label className="check-row"><input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} /> Taxable</label>
-                {editingId && (
-                  <label className="check-row"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>
-                )}
               </div>
             </div>
 

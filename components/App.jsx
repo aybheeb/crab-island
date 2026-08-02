@@ -111,6 +111,7 @@ export default function App({ staff, menu, categories }) {
   const [voidTarget, setVoidTarget] = useState(null);
   const [showCustomItem, setShowCustomItem] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [nameError, setNameError] = useState(false);
   const [activeCategory, setActiveCategory] = useState(categories[0]);
@@ -428,7 +429,15 @@ export default function App({ staff, menu, categories }) {
           </div>
           <span className="hdr-slogan">You buy it, we steam it or fry it.</span>
           <div className="hdr-spacer" />
-          <div className="hdr-actions">
+          <button
+            className="hdr-menu-btn"
+            onClick={() => setNavOpen((o) => !o)}
+            aria-label="Menu"
+            aria-expanded={navOpen}
+          >
+            <Icon.menu />
+          </button>
+          <div className={"hdr-actions" + (navOpen ? " open" : "")} onClick={() => setNavOpen(false)}>
             {staff && (
               <div className="hdr-staff">
                 <span className="hdr-staff-name">{staff.name}</span>

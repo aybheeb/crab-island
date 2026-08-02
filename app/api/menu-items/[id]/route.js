@@ -9,10 +9,8 @@ function validateSizes(sizes) {
   return sizes.every((s) => s && typeof s.label === 'string' && s.label.trim() && typeof s.price === 'number' && s.price >= 0);
 }
 
-// A lightweight { active } body just flips visibility on the register — the
-// same "deactivate instead of delete" pattern as staff — anything else is
-// treated as a full replace of the item's content (what the edit form
-// submits), not a field-by-field partial update.
+// Edit form always submits a full replace of the item's content — items are
+// simply edited or deleted, no separate deactivate/reactivate state.
 export async function PATCH(request, { params }) {
   const { error: authError } = await requireManagerSession();
   if (authError) return authError;
@@ -35,12 +33,6 @@ export async function PATCH(request, { params }) {
       { success: false, error: 'Menu item not found' },
       { status: 404, headers: { 'Cache-Control': 'no-store' } }
     );
-  }
-
-  const keys = Object.keys(body || {});
-  if (keys.length === 1 && keys[0] === 'active') {
-    await query('update menu_items set active = $1 where id = $2', [!!body.active, id]);
-    return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
   }
 
   const {
