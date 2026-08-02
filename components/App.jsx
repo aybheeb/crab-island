@@ -90,9 +90,12 @@ function printErrorMessage(d) {
   }
 }
 
-export default function App({ staff, menu, categories }) {
+export default function App({ staff, menu: initialMenu, categories: initialCategories }) {
   const router = useRouter();
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  const [menu, setMenu] = useState(initialMenu);
+  const [categories, setCategories] = useState(initialCategories);
 
   const [cust, setCust] = useState({ name: "", phone: "" });
   const [lines, setLines] = useState([]);
@@ -137,6 +140,31 @@ export default function App({ staff, menu, categories }) {
       })
       .catch((err) => flashToast(`Could not restore orders: ${err.message}`, true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // menu/categories start as a one-time server-rendered prop (app/page.jsx)
+  // that this tab has no way to learn is stale after a manager edits the
+  // catalog elsewhere — possibly a cached render of this very route if
+  // navigated back to via a Link rather than a hard refresh. Re-fetching once
+  // on mount (covers navigating back to "/") and again whenever the tab
+  // regains focus (covers switching away to edit, then back) catches both
+  // without polling constantly for a resource that rarely changes.
+  useEffect(() => {
+    const refreshMenu = () => {
+      fetch('/api/menu')
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d.success) return;
+          setMenu(d.menu);
+          setCategories(d.categories);
+          setActiveCategory((prev) => (d.categories.includes(prev) ? prev : d.categories[0]));
+        })
+        .catch(() => {});
+    };
+    refreshMenu();
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshMenu(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   const total = lines.reduce((s, l) => s + l.unit * l.custom.qty, 0);
