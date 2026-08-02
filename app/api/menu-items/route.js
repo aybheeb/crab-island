@@ -20,7 +20,7 @@ export async function GET() {
     `select mi.id, mi.category_id as "categoryId", mc.name as category, mi.num, mi.name,
             mi.description as desc, mi.platter, mi.cooking, mi.bowl,
             mi.fish_choice as "fishChoice", mi.market_price as "marketPrice",
-            mi.seasoning, mi.taxable, mi.price, mi.sizes, mi.no_combo_sizes as "noComboSizes",
+            mi.seasoning, mi.taxable, mi.ebt_eligible as "ebtEligible", mi.price, mi.sizes, mi.no_combo_sizes as "noComboSizes",
             mi.active, mi.sort_order as "sortOrder"
      from menu_items mi
      join menu_categories mc on mc.id = mi.category_id
@@ -49,7 +49,7 @@ export async function POST(request) {
 
   const {
     categoryId, num, name, desc, platter, cooking, bowl, fishChoice,
-    marketPrice, seasoning, taxable, price, sizes, noComboSizes,
+    marketPrice, seasoning, taxable, ebtEligible, price, sizes, noComboSizes,
   } = body || {};
 
   if (!categoryId || typeof categoryId !== 'string') {
@@ -102,12 +102,12 @@ export async function POST(request) {
   const { rows } = await query(
     `insert into menu_items
        (category_id, num, name, description, platter, cooking, bowl, fish_choice,
-        market_price, seasoning, taxable, price, sizes, no_combo_sizes, sort_order)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15)
+        market_price, seasoning, taxable, ebt_eligible, price, sizes, no_combo_sizes, sort_order)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15::jsonb,$16)
      returning id`,
     [
       categoryId, num || null, name.trim(), desc || '', !!platter, !!cooking, !!bowl, !!fishChoice,
-      !!marketPrice, seasoning !== false, !!taxable,
+      !!marketPrice, seasoning !== false, !!taxable, ebtEligible !== false,
       hasSizes ? null : (hasPrice ? price : null),
       hasSizes ? JSON.stringify(sizes) : null,
       noComboSizes ? JSON.stringify(noComboSizes) : null,
