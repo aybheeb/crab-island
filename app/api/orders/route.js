@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifySession, SESSION_COOKIE } from '@/lib/session';
 import { isShiftOpen } from '@/lib/shifts';
+import { recordPendingOrder } from '@/lib/reports';
 
 export const runtime = 'nodejs';
 
@@ -70,6 +71,16 @@ export async function POST(request) {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Print server returned HTTP ${res.status}`);
+
+    // Best-effort mirror into the durable reporting database — the
+    // print-server call above already succeeded and is the real source of
+    // truth, so a failure here must never fail this response. Awaited
+    // (not fire-and-forget) since a serverless function can be frozen the
+    // instant its response is sent, which would silently drop an
+    // un-awaited write.
+    await recordPendingOrder(attributedBody).catch((err) =>
+      console.error('[POST /api/orders] reporting mirror failed:', err.message)
+    );
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -108,3 +108,60 @@ create index if not exists menu_items_category_idx on menu_items (category_id, s
 -- true so existing items keep working exactly as before until a manager
 -- explicitly unchecks it for something like a sweetened drink.
 alter table menu_items add column if not exists ebt_eligible boolean not null default true;
+
+-- Durable, queryable order history for reporting (sales-by-period,
+-- best-sellers). This is a mirror, not the operational source of truth —
+-- the print-server's local JSON (print-server/data/) remains authoritative
+-- for day-to-day register operation and keeps working through an internet/
+-- Supabase outage. These tables are written best-effort, after each print-
+-- server call already succeeded, from app/api/orders, app/api/record-order,
+-- and app/api/orders/void. cashier_id/staff_id-shaped columns are plain
+-- snapshots, not foreign keys — a deleted staff account must never block
+-- reads of old orders they touched.
+--
+-- order_no is NOT unique on its own (it resets every day) — always paired
+-- with placed_at/status when looking up a specific in-flight order.
+create table if not exists orders (
+  id uuid primary key default gen_random_uuid(),
+  order_no text not null,
+  cust_name text,
+  cust_phone text,
+  status text not null check (status in ('pending', 'paid', 'voided')),
+  total numeric(10,2) not null,
+  pay_method text,
+  cash numeric(10,2),
+  credit numeric(10,2),
+  ebt numeric(10,2),
+  change_due numeric(10,2),
+  cashier_id uuid,
+  cashier_name text,
+  shift_id uuid,
+  placed_at timestamptz not null,
+  paid_at timestamptz,
+  voided_at timestamptz,
+  voided_by uuid,
+  voided_by_name text,
+  void_reason text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists orders_order_no_idx on orders (order_no);
+create index if not exists orders_status_idx on orders (status);
+create index if not exists orders_paid_at_idx on orders (paid_at) where status = 'paid';
+
+-- One row per line item, denormalized (line_total precomputed) so
+-- best-seller/category-breakdown queries are a plain GROUP BY, not a
+-- per-row multiply across every report request.
+create table if not exists order_items (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references orders(id) on delete cascade,
+  item_name text not null,
+  item_num text,
+  category text,
+  qty int not null,
+  unit_price numeric(10,2) not null,
+  line_total numeric(10,2) not null
+);
+
+create index if not exists order_items_order_idx on order_items (order_id);
+create index if not exists order_items_item_name_idx on order_items (item_name);

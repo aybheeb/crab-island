@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifySession, verifyStepUp, SESSION_COOKIE } from '@/lib/session';
+import { recordOrderVoided } from '@/lib/reports';
 
 export const runtime = 'nodejs';
 
@@ -81,6 +82,17 @@ export async function POST(request) {
         { status: res.status, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
+    // Best-effort mirror into the durable reporting database — the
+    // print-server call above already succeeded and is the real source of
+    // truth, so a failure here must never fail this response. Awaited (not
+    // fire-and-forget) since a serverless function can be frozen the instant
+    // its response is sent.
+    await recordOrderVoided(orderNo, {
+      voidedBy: manager.staffId,
+      voidedByName: manager.name,
+      reason,
+    }).catch((err) => console.error('[POST /api/orders/void] reporting mirror failed:', err.message));
 
     return NextResponse.json(
       { success: true, order: data.order },

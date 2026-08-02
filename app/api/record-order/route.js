@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { recordOrderPaid } from '@/lib/reports';
 
 export const runtime = 'nodejs';
 
@@ -45,6 +46,15 @@ export async function POST(request) {
     if (!res.ok) {
       throw new Error(data.error || `Print server returned HTTP ${res.status}`);
     }
+
+    // Best-effort mirror into the durable reporting database — the
+    // print-server call above already succeeded and is the real source of
+    // truth, so a failure here must never fail this response. Awaited (not
+    // fire-and-forget) since a serverless function can be frozen the instant
+    // its response is sent.
+    await recordOrderPaid(body.orderNo, body).catch((err) =>
+      console.error('[POST /api/record-order] reporting mirror failed:', err.message)
+    );
 
     return NextResponse.json({ success: true });
   } catch (err) {
