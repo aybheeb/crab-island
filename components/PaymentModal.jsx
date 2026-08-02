@@ -14,13 +14,6 @@ function cookingFeeFromLines(lines) {
     (l.item.platter || l.item.bowl) ? sum + l.custom.qty : sum, 0);
 }
 
-// Sum of line totals for items marked not EBT-eligible (e.g. sweetened
-// drinks) — EBT can never cover this portion, same as the cooking fee.
-function ebtIneligibleFromLines(lines) {
-  return lines.reduce((sum, l) =>
-    l.item.ebtEligible === false ? sum + l.unit * l.custom.qty : sum, 0);
-}
-
 // Money math stays in whole cents internally (tenderedRaw), but derived sums
 // (total - tenders, cap - applied, ...) can pick up float dust — round every
 // derived dollar amount before comparing or displaying it.
@@ -117,14 +110,6 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
   const applied = round2(tenders.cash + tenders.credit + tenders.ebt);
   const remaining = round2(effectiveTotal - applied);
 
-  // EBT can only ever cover eligible items (e.g. not a soda) — this cap is
-  // independent of the cooking fee, which is already excluded from EBT by
-  // being an addition on top of `total` rather than part of it.
-  const ebtIneligible = round2(ebtIneligibleFromLines(lines));
-  const ebtMaxApplicable = round2(Math.max(0, total - ebtIneligible));
-  const ebtCapRemaining = round2(Math.max(0, ebtMaxApplicable - tenders.ebt));
-  const hasIneligibleItems = ebtIneligible > 0;
-
   // tenderedRaw is a string of digits representing cents (e.g. "5000" = $50.00)
   const tendered = parseInt(tenderedRaw || '0', 10) / 100;
 
@@ -140,10 +125,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
     } else {
       // Credit/EBT default to covering the rest, so the common (unsplit)
       // case is still just "pick a method, confirm" — no typing required.
-      // EBT is further capped to the eligible subtotal (e.g. water but not
-      // soda) — it can never prefill more than that, even if more is owed.
-      const cap = method === 'ebt' ? round2(Math.min(remaining, ebtCapRemaining)) : remaining;
-      setTenderedRaw(cap > 0 ? String(Math.round(cap * 100)) : '');
+      setTenderedRaw(remaining > 0 ? String(Math.round(remaining * 100)) : '');
     }
   };
 
@@ -182,8 +164,7 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
       newChangeDue = round2(Math.max(0, tendered - remaining));
       newTenders.cash = round2(newTenders.cash + applyAmt);
     } else {
-      const cap = entryMethod === 'ebt' ? round2(Math.min(remaining, ebtCapRemaining)) : remaining;
-      const applyAmt = round2(Math.min(tendered, cap));
+      const applyAmt = round2(Math.min(tendered, remaining));
       newTenders[entryMethod] = round2(newTenders[entryMethod] + applyAmt);
     }
 
@@ -209,17 +190,15 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
   if (entryMethod) {
     const methodMeta = METHODS.find((m) => m.key === entryMethod);
     const isCash = entryMethod === 'cash';
-    const isEbt = entryMethod === 'ebt';
-    const entryCap = isEbt ? round2(Math.min(remaining, ebtCapRemaining)) : remaining;
     const change = isCash ? round2(Math.max(0, tendered - remaining)) : 0;
-    const canConfirm = isCash ? tendered > 0 : (tendered > 0 && tendered <= entryCap + 0.001);
+    const canConfirm = isCash ? tendered > 0 : (tendered > 0 && tendered <= remaining + 0.001);
 
     return (
       <TenderEntryScreen
         orderNo={order.orderNo}
         title={`${methodMeta.label} Payment`}
-        amountLabel={isEbt && entryCap < remaining ? 'EBT-Eligible Remaining' : 'Remaining'}
-        targetAmount={entryCap}
+        amountLabel="Remaining"
+        targetAmount={remaining}
         beforeAmount={entryMethod === 'ebt' && !ebtUsed && cookingFee > 0 && (
           <div className="pay-split-block" style={{ marginBottom: 14 }}>
             <div className="pay-split-row">
@@ -263,22 +242,13 @@ export default function PaymentModal({ order, onConfirm, onCancel }) {
           <div className="pay-split-methods">
             {METHODS.map(({ key, label }) => {
               const amt = tenders[key];
-              const isEbtRow = key === 'ebt';
-              const ebtDisabled = isEbtRow && ebtCapRemaining <= 0 && amt === 0;
-              const showFeeHint = isEbtRow && !ebtUsed && cookingFee > 0;
-              const showIneligibleHint = isEbtRow && hasIneligibleItems && !ebtDisabled;
+              const showEbtHint = key === 'ebt' && !ebtUsed && cookingFee > 0;
               return (
                 <div className="pay-split-method-row" key={key}>
-                  <button className="pay-method-btn" onClick={() => openEntry(key)} disabled={ebtDisabled}>
+                  <button className="pay-method-btn" onClick={() => openEntry(key)}>
                     <span>
                       <span className="pay-method-label">{label}</span>
-                      {ebtDisabled && (
-                        <span className="pay-method-hint">No EBT-eligible items in this order</span>
-                      )}
-                      {showIneligibleHint && (
-                        <span className="pay-method-hint">{money(ebtIneligible)} not EBT-eligible</span>
-                      )}
-                      {showFeeHint && (
+                      {showEbtHint && (
                         <span className="pay-method-hint">+{money(cookingFee)} cooking fee if used</span>
                       )}
                     </span>

@@ -37,7 +37,7 @@ export async function PATCH(request, { params }) {
 
   const {
     categoryId, num, name, desc, platter, cooking, bowl, fishChoice,
-    marketPrice, seasoning, taxable, ebtEligible, price, sizes, noComboSizes, active,
+    marketPrice, seasoning, taxable, price, sizes, noComboSizes, active,
   } = body || {};
 
   if (!categoryId || typeof categoryId !== 'string') {
@@ -86,13 +86,13 @@ export async function PATCH(request, { params }) {
     `update menu_items set
        category_id = $1, num = $2, name = $3, description = $4,
        platter = $5, cooking = $6, bowl = $7, fish_choice = $8,
-       market_price = $9, seasoning = $10, taxable = $11, ebt_eligible = $12,
-       price = $13, sizes = $14::jsonb, no_combo_sizes = $15::jsonb,
-       active = $16
-     where id = $17`,
+       market_price = $9, seasoning = $10, taxable = $11,
+       price = $12, sizes = $13::jsonb, no_combo_sizes = $14::jsonb,
+       active = $15
+     where id = $16`,
     [
       categoryId, num || null, name.trim(), desc || '', !!platter, !!cooking, !!bowl, !!fishChoice,
-      !!marketPrice, seasoning !== false, !!taxable, ebtEligible !== false,
+      !!marketPrice, seasoning !== false, !!taxable,
       hasSizes ? null : (hasPrice ? price : null),
       hasSizes ? JSON.stringify(sizes) : null,
       noComboSizes ? JSON.stringify(noComboSizes) : null,
