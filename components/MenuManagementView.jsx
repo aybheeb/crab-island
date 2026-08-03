@@ -101,6 +101,8 @@ export default function MenuManagementView({ staff }) {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [categoryBusy, setCategoryBusy] = useState(false);
 
+  const [search, setSearch] = useState('');
+
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deleteCategoryConfirmId, setDeleteCategoryConfirmId] = useState(null);
   const [toast, setToast] = useState(null);
@@ -249,8 +251,22 @@ export default function MenuManagementView({ staff }) {
       .catch((err) => { flashToast(err.message, true); setDeleteCategoryConfirmId(null); });
   };
 
+  // While searching, a category with no matches is dropped entirely rather
+  // than shown with "No items in this category yet." (which is reserved for
+  // a genuinely empty category, not a search that just didn't match here) —
+  // the whole point of the search is fewer categories to scroll past.
+  const searchTerm = search.trim().toLowerCase();
   const itemsByCategory = categories && items
-    ? categories.map((cat) => ({ cat, items: items.filter((i) => i.categoryId === cat.id) }))
+    ? categories
+        .map((cat) => ({
+          cat,
+          items: items.filter((i) => i.categoryId === cat.id && (
+            !searchTerm ||
+            i.name.toLowerCase().includes(searchTerm) ||
+            (i.num && i.num.toLowerCase().includes(searchTerm))
+          )),
+        }))
+        .filter((g) => !searchTerm || g.items.length > 0)
     : [];
 
   return (
@@ -273,12 +289,20 @@ export default function MenuManagementView({ staff }) {
 
         {view === 'list' && !loading && categories && items && (
           <>
-            <div className="opt-group">
-              <label className="opt-label">Add Category</label>
-              <div className="size-row">
+            <div className="mgr-menu-toolbar">
+              <div className="search-wrap">
+                <Icon.search />
+                <input
+                  className="search-input"
+                  placeholder="Search items or number…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="size-row" style={{ flex: '1 1 320px' }}>
                 <input
                   className="text-input"
-                  placeholder="e.g. Desserts"
+                  placeholder="Add category — e.g. Desserts"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
                 />
@@ -287,6 +311,10 @@ export default function MenuManagementView({ staff }) {
                 </button>
               </div>
             </div>
+
+            {searchTerm && itemsByCategory.length === 0 && (
+              <div className="po-empty">No items match &quot;{search}&quot;.</div>
+            )}
 
             {itemsByCategory.map(({ cat, items: catItems }) => (
               <div className="mgr-menu-category" key={cat.id}>

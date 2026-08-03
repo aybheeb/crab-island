@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Icon } from './Menu';
 import { customChips, money, isCustomLine } from './data';
 
@@ -204,8 +204,17 @@ export function TicketModal({ order, onClose, onNewOrder, onPrintReceipt }) {
         </div>
         <div className="ticket-foot">
           <button className="btn-ghost" onClick={onClose}><Icon.x /> Close</button>
-          <button className="btn-ghost" onClick={onPrintReceipt}><Icon.print /> Print Receipt</button>
-          <button className="btn-primary" onClick={onNewOrder}><Icon.plus /> New Order</button>
+          {/* Viewing an old ticket from Placed Orders passes no onNewOrder —
+              starting a new order doesn't make sense mid-browse, so it's
+              just Print Receipt + Close there, with Print Receipt promoted
+              to the primary action instead of staying a secondary ghost
+              button next to a New Order that no longer exists. */}
+          <button className={onNewOrder ? "btn-ghost" : "btn-primary"} onClick={onPrintReceipt}>
+            <Icon.print /> Print Receipt
+          </button>
+          {onNewOrder && (
+            <button className="btn-primary" onClick={onNewOrder}><Icon.plus /> New Order</button>
+          )}
         </div>
       </div>
     </div>
@@ -221,12 +230,23 @@ const PO_FILTERS = [
 
 export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetrySave, onVoidOrder, onEditOrder, editingOrderNo }) {
   const [filter, setFilter] = useState('all');
+  // orderNo of the card whose "more actions" (Edit/Void) menu is open —
+  // only one at a time. Any click that isn't the toggle button itself
+  // (which stops propagation) closes it, including a click on a menu item.
+  const [openMenu, setOpenMenu] = useState(null);
   const pendingCount = orders.filter((o) => o.status === 'pending').length;
   const visible = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
 
+  useEffect(() => {
+    if (!openMenu) return;
+    const closeMenu = () => setOpenMenu(null);
+    document.addEventListener('click', closeMenu);
+    return () => document.removeEventListener('click', closeMenu);
+  }, [openMenu]);
+
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal modal-wide modal-stable">
         <div className="modal-head">
           <div>
             <h3>Placed Orders</h3>
@@ -252,75 +272,80 @@ export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetr
           {visible.length === 0 ? (
             <div className="po-empty">{orders.length === 0 ? "No orders placed yet." : "No orders in this view."}</div>
           ) : (
-            <div className="po-list">
+            <div className="po-grid">
               {[...visible].reverse().map((o) => (
                 <div className="po-card" key={o.orderNo}>
-                  <div className="po-info">
-                    <h4>{o.cust.name || "Walk-In"}</h4>
-                    <p>{o.orderNo} · {o.lines.reduce((n, l) => n + l.custom.qty, 0)} items · {new Date(o.ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</p>
-                    <span className={"status-badge status-" + o.status}>
-                      {o.status === 'paid' ? 'Paid' : o.status === 'voided' ? 'Voided' : 'Pending'}
-                    </span>
-                    {o.status === 'voided' && o.voidedByName && (
-                      <p className="po-void-note">Voided by {o.voidedByName}{o.voidReason ? ` — ${o.voidReason}` : ''}</p>
-                    )}
-                    {o.saveFailed && <span className="status-badge status-error">Not Saved</span>}
-                    {o.orderNo === editingOrderNo && <span className="status-badge status-pending">Editing…</span>}
+                  <div className="po-card-top">
+                    <div className="po-card-badges">
+                      <span className={"status-badge status-" + o.status}>
+                        {o.status === 'paid' ? 'Paid' : o.status === 'voided' ? 'Voided' : 'Pending'}
+                      </span>
+                      {o.saveFailed && <span className="status-badge status-error">Not Saved</span>}
+                      {o.orderNo === editingOrderNo && <span className="status-badge status-pending">Editing…</span>}
+                    </div>
+                    <span className="po-card-total">{money(o.total)}</span>
                   </div>
-                  <div className="po-right">
-                    <span className="po-total">{money(o.total)}</span>
-                    {o.orderNo === editingOrderNo ? (
-                      <div className="po-actions">
-                        <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
-                      </div>
-                    ) : (
-                      <div className="po-actions">
-                        <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
-                        {o.saveFailed && (
+                  <h4>{o.cust.name || "Walk-In"}</h4>
+                  <p className="po-card-meta">{o.orderNo} · {o.lines.reduce((n, l) => n + l.custom.qty, 0)} items · {new Date(o.ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</p>
+                  {o.status === 'voided' && o.voidedByName && (
+                    <p className="po-void-note">Voided by {o.voidedByName}{o.voidReason ? ` — ${o.voidReason}` : ''}</p>
+                  )}
+                  {o.orderNo === editingOrderNo ? (
+                    <div className="po-card-actions">
+                      <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
+                    </div>
+                  ) : (
+                    <div className="po-card-actions">
+                      <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
+                      {o.saveFailed && (
+                        <button
+                          className="icon-btn"
+                          onClick={() => onRetrySave(o)}
+                          style={{ borderColor: "var(--red)", color: "var(--red)" }}
+                        >
+                          <Icon.check /> Retry Save
+                        </button>
+                      )}
+                      {o.status === 'pending' && (
+                        <button
+                          className="icon-btn"
+                          onClick={() => onCollectPayment(o)}
+                          style={{ borderColor: "var(--gold)", color: "var(--gold-deep)" }}
+                        >
+                          <Icon.check /> Collect Payment
+                        </button>
+                      )}
+                      {/*
+                        Edit/Void live behind the "more" menu since they're
+                        the less-frequent actions — Ticket and Collect
+                        Payment are what a cashier reaches for on nearly
+                        every card. Void requires a manager PIN (step-up)
+                        every time, verified server-side in
+                        app/api/orders/void — this item being reachable by a
+                        cashier isn't a security boundary, entering a
+                        manager's PIN in the modal it opens is.
+                      */}
+                      {(o.status === 'pending' || o.status === 'paid') && (
+                        <div className="po-more-wrap">
                           <button
-                            className="icon-btn"
-                            onClick={() => onRetrySave(o)}
-                            style={{ borderColor: "var(--red)", color: "var(--red)" }}
+                            className="icon-btn po-more-btn"
+                            onClick={(e) => { e.stopPropagation(); setOpenMenu((cur) => (cur === o.orderNo ? null : o.orderNo)); }}
+                            aria-label="More actions"
                           >
-                            <Icon.check /> Retry Save
+                            <Icon.dots />
                           </button>
-                        )}
-                        {o.status === 'pending' && (
-                          <button
-                            className="icon-btn"
-                            onClick={() => onCollectPayment(o)}
-                            style={{ borderColor: "var(--gold)", color: "var(--gold-deep)" }}
-                          >
-                            <Icon.check /> Collect Payment
-                          </button>
-                        )}
-                        {o.status === 'pending' && !o.saveFailed && (
-                          <button
-                            className="icon-btn"
-                            onClick={() => onEditOrder(o)}
-                            style={{ borderColor: "var(--ocean)", color: "var(--ocean-deep)" }}
-                          >
-                            <Icon.edit /> Edit
-                          </button>
-                        )}
-                        {/*
-                          Void requires a manager PIN (step-up) every time, verified
-                          server-side in app/api/orders/void — this button being visible
-                          to a cashier isn't a security boundary, entering a manager's
-                          PIN in the modal it opens is.
-                        */}
-                        {(o.status === 'pending' || o.status === 'paid') && (
-                          <button
-                            className="icon-btn"
-                            onClick={() => onVoidOrder(o)}
-                            style={{ borderColor: "var(--red)", color: "var(--red)" }}
-                          >
-                            <Icon.x /> Void
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                          {openMenu === o.orderNo && (
+                            <div className="po-more-menu">
+                              {o.status === 'pending' && !o.saveFailed && (
+                                <button onClick={() => onEditOrder(o)}><Icon.edit /> Edit</button>
+                              )}
+                              <button className="danger" onClick={() => onVoidOrder(o)}><Icon.x /> Void</button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

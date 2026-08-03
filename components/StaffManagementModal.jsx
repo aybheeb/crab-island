@@ -164,7 +164,7 @@ export default function StaffManagementModal({ onClose }) {
 
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div className="modal" style={{ maxWidth: 640 }}>
+      <div className="modal modal-stable" style={{ maxWidth: 640 }}>
         <div className="modal-head">
           <div>
             <h3>{view === 'list' ? 'Manage Staff' : view === 'add' ? 'Add Staff' : `Reset PIN — ${resetTarget?.name}`}</h3>

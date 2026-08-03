@@ -134,6 +134,10 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
 
   const [modalItem, setModalItem] = useState(null);
   const [ticket, setTicket] = useState(null);
+  // True when `ticket` is a historical order pulled up via Placed Orders'
+  // Ticket button, rather than the one just placed/paid — governs whether
+  // TicketModal offers "New Order" (see the ticketFromHistory ? ... below).
+  const [ticketFromHistory, setTicketFromHistory] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState(null);
   // True when paymentOrder was just built from the live cart (placeAndPay) —
   // false when it's a different, previously-placed pending order pulled up
@@ -463,6 +467,7 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
     const order = { ...paymentOrder, status: 'paid', paidAt: Date.now(), payMethod, changeDue, tenders, total: settledTotal };
     setPaymentOrder(null);
     setTicket(order);
+    setTicketFromHistory(false);
 
     const recordPayment = () => {
       postWithRetry('/api/record-order', { orderNo: order.orderNo, payMethod, changeDue, tenders, total: settledTotal })
@@ -652,24 +657,28 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
           onCancel={() => setPaymentOrder(null)}
         />
       )}
-      {ticket && (
-        <TicketModal
-          order={ticket}
-          onClose={() => setTicket(null)}
-          onNewOrder={startNewOrder}
-          onPrintReceipt={printCustomerReceipt}
-        />
-      )}
       {showPlaced && (
         <PlacedOrders
           orders={orders}
           onClose={() => setShowPlaced(false)}
-          onView={(o) => { setShowPlaced(false); setTicket(o); }}
+          onView={(o) => { setTicket(o); setTicketFromHistory(true); }}
           onCollectPayment={collectPayment}
           onRetrySave={retrySaveOrder}
           onVoidOrder={(o) => setVoidTarget(o)}
           onEditOrder={startEditOrder}
           editingOrderNo={editingOrderNo}
+        />
+      )}
+      {ticket && (
+        // Rendered after (so it paints on top of) PlacedOrders — viewing a
+        // ticket from the placed-orders list no longer closes that list
+        // behind it, so closing the ticket lands back on it instead of
+        // requiring "Orders" to be reopened from scratch.
+        <TicketModal
+          order={ticket}
+          onClose={() => setTicket(null)}
+          onNewOrder={ticketFromHistory ? undefined : startNewOrder}
+          onPrintReceipt={printCustomerReceipt}
         />
       )}
       {voidTarget && (

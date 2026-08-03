@@ -552,7 +552,22 @@ input, textarea { font-family: inherit; }
 }
 .modal-close:hover { background: rgba(255,255,255,.32); }
 
-.modal-body { padding: 20px 22px; overflow-y: auto; }
+.modal-body { padding: 20px 22px; overflow-y: auto; flex: 1 1 auto; }
+
+/* Fixed-height modals — for the ones whose content noticeably varies while
+   open (Placed Orders' status filters, Staff Management's list/add/reset
+   views), so switching between them doesn't visibly resize the modal.
+   Plain form/confirmation modals intentionally keep sizing to their actual
+   content instead — forcing e.g. a 2-line Void confirmation to this same
+   height would just leave a lot of empty space under it. flex:1 1 auto
+   above only takes effect when there's spare height to fill, so it doesn't
+   change anything for those content-sized modals. */
+@media (min-width: 641px) {
+  .modal-stable { height: 92vh; }
+}
+@media (max-width: 640px) {
+  .modal-stable { height: 90vh; }
+}
 .opt-group { margin-bottom: 20px; }
 .opt-group:last-child { margin-bottom: 0; }
 .opt-label {
@@ -748,6 +763,15 @@ input, textarea { font-family: inherit; }
 /* ============================================================
    Placed orders drawer
    ============================================================ */
+/* Placed Orders uses a wider modal so its grid cards have room — bare
+   .modal keeps its normal 560px cap everywhere else. The phone bottom-sheet
+   override (.modal { max-width: 100% } under 640px) already wins on small
+   screens without needing anything special here, since it's declared inside
+   its own media query and this one only raises the cap at 641px+. */
+@media (min-width: 641px) {
+  .modal-wide { max-width: 1100px; }
+}
+
 .po-filters { display: flex; gap: 8px; padding: 14px 22px 0; }
 .po-filter-btn {
   background: var(--sand); border: 1.5px solid var(--line); color: var(--slate);
@@ -756,14 +780,90 @@ input, textarea { font-family: inherit; }
 }
 .po-filter-btn:hover { border-color: var(--ocean); color: var(--ocean-deep); }
 .po-filter-btn.active { background: var(--navy); border-color: var(--navy); color: var(--white); }
-.po-list { display: flex; flex-direction: column; gap: 12px; }
 .po-empty { text-align: center; color: var(--slate-light); font-weight: 700; padding: 40px 10px; }
-.po-card { border: 1.5px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--paper); }
-.po-card .po-info h4 { font-family: var(--font-display); font-weight: 800; margin: 0 0 2px; font-size: 1.15rem; color: var(--navy); }
-.po-card .po-info p { margin: 0; font-size: .85rem; font-weight: 700; color: var(--slate); }
-.po-card .po-right { text-align: right; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
-.po-card .po-total { font-family: var(--font-display); font-weight: 800; color: var(--red); font-size: 1.2rem; }
+.po-list { display: flex; flex-direction: column; gap: 12px; } /* shared by StaffManagementModal's roster, not just orders */
+
+/* Grid of order cards (DoorDash-style) — replaces the old thin list rows,
+   deliberately taking more room per order. Column count is purely a
+   function of available width via auto-fill, no JS/breakpoint logic. */
+.po-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.po-card {
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px 18px 16px;
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.po-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.po-card-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.po-card-total {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--red);
+  font-size: 1.3rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.po-card h4 { font-family: var(--font-display); font-weight: 800; margin: 0 0 2px; font-size: 1.15rem; color: var(--navy); }
+.po-card-meta { margin: 0; font-size: .85rem; font-weight: 700; color: var(--slate); }
 .po-void-note { margin: 4px 0 0; font-size: .78rem; font-weight: 700; color: var(--red-deep); }
+.po-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+.po-card-actions .icon-btn { flex: 1 1 auto; justify-content: center; }
+
+/* "More" (kebab) menu — holds Edit/Void, the less-frequent per-order
+   actions, so the default action row only has Ticket + Collect Payment. */
+.po-more-wrap { position: relative; flex: 0 0 auto; }
+.po-card-actions .po-more-btn { flex: 0 0 auto; width: 38px; padding: 0; }
+.po-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  min-width: 160px;
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.po-more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  background: none;
+  border: none;
+  font-weight: 800;
+  font-size: .88rem;
+  color: var(--navy);
+  text-align: left;
+}
+.po-more-menu button:hover { background: var(--sand); }
+.po-more-menu button.danger { color: var(--red); }
+.po-more-menu button.danger:hover { background: var(--red-soft); }
 
 .staff-card {
   border: 1.5px solid var(--line);
@@ -785,7 +885,6 @@ input, textarea { font-family: inherit; }
   color: var(--navy);
   letter-spacing: .08em;
 }
-.po-actions { display: flex; gap: 8px; }
 
 .status-badge {
   display: inline-block; margin-top: 4px; font-family: var(--font-display);
@@ -1199,7 +1298,7 @@ input, textarea { font-family: inherit; }
 .mgr-hdr-inner {
   display: flex;
   align-items: center;
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 .mgr-title {
@@ -1210,7 +1309,7 @@ input, textarea { font-family: inherit; }
   margin: 0;
 }
 .mgr-body {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 28px 22px;
   display: grid;
@@ -1243,10 +1342,22 @@ input, textarea { font-family: inherit; }
    Menu management (/manager/menu)
    ============================================================ */
 .mgr-menu-body {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 24px 22px 100px;
 }
+/* The edit form stays a normal centered width even though the list view
+   above now uses most of the screen — a form full of labeled text inputs
+   stretched to 1600px would be harder to use, not easier. */
+.menu-form { max-width: 640px; margin: 0 auto; }
+.mgr-menu-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.mgr-menu-toolbar .search-wrap { flex: 1 1 320px; max-width: 480px; }
 .mgr-menu-foot {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -1353,6 +1464,16 @@ input, textarea { font-family: inherit; }
 /* ============================================================
    Reports charts (/manager/reports)
    ============================================================ */
+.reports-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.reports-col { min-width: 0; }
+@media (max-width: 900px) {
+  .reports-columns { grid-template-columns: 1fr; }
+}
 .cat-bars { display: flex; flex-direction: column; gap: 12px; }
 .cat-bar-label {
   display: flex; justify-content: space-between;

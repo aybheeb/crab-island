@@ -8,11 +8,12 @@ import { money } from './data';
 
 const PRESETS = [
   { key: 'today', label: 'Today' },
+  { key: 'day', label: 'Specific Day' },
   { key: '7d', label: 'Last 7 Days' },
   { key: '30d', label: 'Last 30 Days' },
   { key: 'month', label: 'This Month' },
   { key: 'all', label: 'All Time' },
-  { key: 'custom', label: 'Custom' },
+  { key: 'custom', label: 'Custom Range' },
 ];
 
 function startOfDay(d) {
@@ -118,14 +119,22 @@ function TrendChart({ days }) {
 // Resolves a preset key (or explicit custom from/to date strings, in this
 // browser's local timezone) into concrete instants for the API's from/to
 // query params. `to` is always exclusive, so it's set one day past the
-// last included day rather than to its midnight.
-function resolveRange(preset, customFrom, customTo) {
+// last included day rather than to its midnight — except 'today', which
+// stops at `now` rather than projecting into the rest of today.
+function resolveRange(preset, customFrom, customTo, pickedDay) {
   const now = new Date();
   const todayStart = startOfDay(now);
 
   switch (preset) {
     case 'today':
       return { from: todayStart, to: now };
+    case 'day': {
+      if (!pickedDay) return null;
+      const from = startOfDay(new Date(pickedDay));
+      const to = new Date(from);
+      to.setDate(to.getDate() + 1);
+      return { from, to };
+    }
     case '7d': {
       const from = new Date(todayStart);
       from.setDate(from.getDate() - 6);
@@ -160,6 +169,7 @@ export default function ReportsView({ staff }) {
   const router = useRouter();
 
   const [preset, setPreset] = useState('today');
+  const [pickedDay, setPickedDay] = useState('');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [itemSearch, setItemSearch] = useState('');
@@ -184,7 +194,7 @@ export default function ReportsView({ staff }) {
   };
 
   const load = useCallback(() => {
-    const range = resolveRange(preset, customFrom, customTo);
+    const range = resolveRange(preset, customFrom, customTo, pickedDay);
     if (!range) return;
 
     setLoading(true);
@@ -206,15 +216,18 @@ export default function ReportsView({ staff }) {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [preset, customFrom, customTo]);
+  }, [preset, customFrom, customTo, pickedDay]);
 
   useEffect(() => {
     if (preset === 'custom' && (!customFrom || !customTo)) return;
+    if (preset === 'day' && !pickedDay) return;
     load();
-  }, [preset, customFrom, customTo, load]);
+  }, [preset, customFrom, customTo, pickedDay, load]);
 
+  const itemSearchTerm = itemSearch.trim().toLowerCase();
   const filteredItems = items?.filter((it) =>
-    it.name.toLowerCase().includes(itemSearch.trim().toLowerCase())
+    it.name.toLowerCase().includes(itemSearchTerm) ||
+    (it.num && it.num.toLowerCase().includes(itemSearchTerm))
   ) ?? [];
 
   return (
@@ -246,6 +259,15 @@ export default function ReportsView({ staff }) {
               </button>
             ))}
           </div>
+          {preset === 'day' && (
+            <input
+              className="text-input"
+              type="date"
+              style={{ marginTop: 12, maxWidth: 220 }}
+              value={pickedDay}
+              onChange={(e) => setPickedDay(e.target.value)}
+            />
+          )}
           {preset === 'custom' && (
             <div className="size-row" style={{ marginTop: 12 }}>
               <input
@@ -271,71 +293,75 @@ export default function ReportsView({ staff }) {
           sales.orderCount === 0 ? (
             <div className="po-empty">No paid orders in this period.</div>
           ) : (
-            <>
-              <div className="mgr-menu-category">
-                <div className="mgr-menu-category-head"><h3>Sales Summary</h3></div>
-                <div className="staff-card">
-                  <div className="subtle-row"><span>Orders (paid)</span><span>{sales.orderCount}</span></div>
-                  <div className="subtle-row"><span>Items sold</span><span>{sales.itemCount}</span></div>
-                  <hr className="ticket-divider" />
-                  <div className="subtle-row"><span>Cash</span><span>{money(sales.cash)}</span></div>
-                  <div className="subtle-row"><span>Credit</span><span>{money(sales.credit)}</span></div>
-                  <div className="subtle-row"><span>EBT</span><span>{money(sales.ebt)}</span></div>
-                  <hr className="ticket-divider" />
-                  <div className="total-row">
-                    <span className="tl">Grand Total</span>
-                    <span className="tv">{money(sales.grandTotal)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {trendDays?.length > 0 && (
+            <div className="reports-columns">
+              <div className="reports-col">
                 <div className="mgr-menu-category">
-                  <div className="mgr-menu-category-head"><h3>Daily Trend</h3></div>
+                  <div className="mgr-menu-category-head"><h3>Sales Summary</h3></div>
                   <div className="staff-card">
-                    <TrendChart days={trendDays} />
-                  </div>
-                </div>
-              )}
-
-              {categories?.length > 0 && (
-                <div className="mgr-menu-category">
-                  <div className="mgr-menu-category-head"><h3>By Category</h3></div>
-                  <div className="staff-card">
-                    <CategoryBars categories={categories} />
-                  </div>
-                </div>
-              )}
-
-              {items?.length > 0 && (
-                <div className="mgr-menu-category">
-                  <div className="mgr-menu-category-head">
-                    <h3>Best Sellers</h3>
-                    <div className="search-wrap">
-                      <Icon.search />
-                      <input
-                        className="search-input"
-                        placeholder="Search items…"
-                        value={itemSearch}
-                        onChange={(e) => setItemSearch(e.target.value)}
-                      />
+                    <div className="subtle-row"><span>Orders (paid)</span><span>{sales.orderCount}</span></div>
+                    <div className="subtle-row"><span>Items sold</span><span>{sales.itemCount}</span></div>
+                    <hr className="ticket-divider" />
+                    <div className="subtle-row"><span>Cash</span><span>{money(sales.cash)}</span></div>
+                    <div className="subtle-row"><span>Credit</span><span>{money(sales.credit)}</span></div>
+                    <div className="subtle-row"><span>EBT</span><span>{money(sales.ebt)}</span></div>
+                    <hr className="ticket-divider" />
+                    <div className="total-row">
+                      <span className="tl">Grand Total</span>
+                      <span className="tv">{money(sales.grandTotal)}</span>
                     </div>
                   </div>
-                  <div className="staff-card">
-                    {filteredItems.length === 0 ? (
-                      <div className="po-empty">No items match "{itemSearch}".</div>
-                    ) : (
-                      filteredItems.map((it, i) => (
-                        <div className="subtle-row" key={`${it.name}-${it.category}-${i}`}>
-                          <span>{it.name} <span style={{ color: 'var(--slate-light)' }}>× {it.qty}</span></span>
-                          <span>{money(it.revenue)}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
                 </div>
-              )}
-            </>
+
+                {trendDays?.length > 0 && (
+                  <div className="mgr-menu-category">
+                    <div className="mgr-menu-category-head"><h3>Daily Trend</h3></div>
+                    <div className="staff-card">
+                      <TrendChart days={trendDays} />
+                    </div>
+                  </div>
+                )}
+
+                {categories?.length > 0 && (
+                  <div className="mgr-menu-category">
+                    <div className="mgr-menu-category-head"><h3>By Category</h3></div>
+                    <div className="staff-card">
+                      <CategoryBars categories={categories} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="reports-col">
+                {items?.length > 0 && (
+                  <div className="mgr-menu-category">
+                    <div className="mgr-menu-category-head">
+                      <h3>Best Sellers</h3>
+                      <div className="search-wrap">
+                        <Icon.search />
+                        <input
+                          className="search-input"
+                          placeholder="Search items…"
+                          value={itemSearch}
+                          onChange={(e) => setItemSearch(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="staff-card">
+                      {filteredItems.length === 0 ? (
+                        <div className="po-empty">No items match "{itemSearch}".</div>
+                      ) : (
+                        filteredItems.map((it, i) => (
+                          <div className="subtle-row" key={`${it.name}-${it.category}-${i}`}>
+                            <span>{it.num ? `${it.num} ` : ''}{it.name} <span style={{ color: 'var(--slate-light)' }}>× {it.qty}</span></span>
+                            <span>{money(it.revenue)}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           )
         )}
       </div>

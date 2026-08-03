@@ -20,6 +20,7 @@ export const Icon = {
   list:   (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>,
   menu:   (p) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" {...p}><path d="M3 6h18M3 12h18M3 18h18"/></svg>,
   chart:  (p) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16v-7"/></svg>,
+  dots:   (p) => <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" {...p}><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>,
 };
 
 export const CATEGORY_META = {
@@ -267,7 +268,7 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
                   >
                     {c.fishType === f.label && <Icon.check className="ck" />}
                     {f.label}
-                    {f.upcharge > 0 && <span className="fish-up">+${f.upcharge}</span>}
+                    {f.upcharge > 0 && !item.bowl && <span className="fish-up">+${f.upcharge}</span>}
                   </button>
                 ))}
               </div>

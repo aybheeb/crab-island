@@ -50,17 +50,24 @@ export function unitPriceFor(item, custom) {
   } else {
     base = item.price;
   }
-  if (item.fishChoice && custom.fishType) {
+  // Fish choice affects price on the fish platters, but not rice bowls — a
+  // bowl's fish is included in its flat price regardless of which one you
+  // pick, so the premium-fish upcharge only applies when !item.bowl.
+  if (item.fishChoice && custom.fishType && !item.bowl) {
     const fish = FISH_TYPES.find((f) => f.label === custom.fishType);
     if (fish) base += fish.upcharge;
   }
   return base;
 }
 
+// c.seasoning/bowlVeg/veg are guarded with "&& c.x" before indexing below —
+// older order records (from before a given item's shape stabilized) can
+// have a custom object missing one of these, and a ticket for that order
+// must still render instead of crashing the whole page.
 export function customChips(item, c) {
   const chips = [];
   if (c.size)      chips.push(c.size);
-  if (item.seasoning !== false) {
+  if (item.seasoning !== false && c.seasoning) {
     const realSeasonings = SEASONINGS.filter((s) => s !== 'No Seasoning');
     const picked = realSeasonings.filter((s) => c.seasoning[s]);
     if (picked.length === realSeasonings.length) chips.push('All Seasoning');
@@ -71,15 +78,17 @@ export function customChips(item, c) {
   if (c.cooking)   chips.push(c.cooking);
   if (item.fishChoice && c.fishType) {
     const fish = FISH_TYPES.find((f) => f.label === c.fishType);
-    chips.push(fish?.upcharge > 0 ? `${c.fishType} (+$${fish.upcharge})` : c.fishType);
+    // Matches unitPriceFor: the upcharge only actually applies off a bowl,
+    // so don't print a "(+$2)" that didn't get charged.
+    chips.push(fish?.upcharge > 0 && !item.bowl ? `${c.fishType} (+$${fish.upcharge})` : c.fishType);
   }
-  if (item.bowl) {
+  if (item.bowl && c.bowlVeg) {
     const missingVeg = BOWL_VEGGIES.filter((v) => !c.bowlVeg[v]);
     if (missingVeg.length) chips.push(`No ${missingVeg.join(' & ')}`);
     if (c.sauce)   chips.push(c.sauce);
   } else if (item.noCombo && c.noCombo) {
     chips.push("No Sides");
-  } else if (item.platter) {
+  } else if (item.platter && c.veg) {
     if (c.fries) {
       chips.push("Fries");
     } else {
