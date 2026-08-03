@@ -162,14 +162,28 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
   const total = unit * c.qty;
   const activeSizes = c.noCombo && item.noCombo ? item.noCombo.sizes : item.sizes;
 
+  // À la carte (no sides) + deep fried doesn't get a butter option — cleared
+  // here (not just hidden) so a stale selection can't leak onto the printed
+  // ticket as a chip. Only touched right at the hidden/visible transition,
+  // so an unrelated change (e.g. switching sizes) never clobbers a choice
+  // the cashier already made.
+  const butterAcross = (nextNoCombo, nextCooking) => {
+    const wasHidden = c.noCombo && c.cooking === "Deep Fried";
+    const willBeHidden = nextNoCombo && nextCooking === "Deep Fried";
+    if (willBeHidden === wasHidden) return c.butter;
+    return item.platter && !willBeHidden ? "With Butter" : null;
+  };
+
   const toggleNoCombo = () => {
     const next = !c.noCombo;
     const sizesForNext = next && item.noCombo ? item.noCombo.sizes : item.sizes;
     const size = sizesForNext
       ? (sizesForNext.find((s) => s.label === c.size)?.label || sizesForNext[0].label)
       : c.size;
-    set({ noCombo: next, size, fries: false });
+    set({ noCombo: next, size, fries: false, butter: butterAcross(next, c.cooking) });
   };
+
+  const setCooking = (v) => set({ cooking: v, butter: butterAcross(c.noCombo, v) });
 
   const Seg = ({ options, value, onChange, variant }) => (
     <div className={"seg" + (variant ? " " + variant : "")}>
@@ -236,7 +250,7 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
           {item.cooking && (
             <div className="opt-group">
               <p className="opt-label">Cooking Style</p>
-              <Seg options={COOKING} value={c.cooking} onChange={(v) => set({ cooking: v })} />
+              <Seg options={COOKING} value={c.cooking} onChange={setCooking} />
             </div>
           )}
 
