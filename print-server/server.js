@@ -1,7 +1,7 @@
 import './loadEnv.js';
 import express from 'express';
 import { printTicket, printKitchenOnly, printMerchantReceipt, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
-import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay, voidOrder } from '../server/services/orderStore.js';
+import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay, voidOrder, editOrder } from '../server/services/orderStore.js';
 import { money } from '../components/data.js';
 import { logger } from './logger.js';
 
@@ -59,11 +59,11 @@ app.post('/print-kitchen', async (req, res) => {
     return res.status(400).json({ error: 'Order has no items' });
   }
 
-  console.log(`[print-server] Kitchen ticket requested — ORDER ${order.orderNo} (${order.lines.length} item(s))`);
+  console.log(`[print-server] Kitchen ticket requested — ORDER ${order.orderNo} (${order.lines.length} item(s))${order.updated ? ' [UPDATED]' : ''}`);
 
   try {
-    await printKitchenOnly(order);
-    logger.info({ orderNo: order.orderNo, target: 'kitchen', result: 'success' }, 'kitchen ticket succeeded');
+    await printKitchenOnly(order, { updated: !!order.updated });
+    logger.info({ orderNo: order.orderNo, target: 'kitchen', updated: !!order.updated, result: 'success' }, 'kitchen ticket succeeded');
     res.json({ success: true });
   } catch (err) {
     console.error(`[print-server] Kitchen ticket failed for ORDER ${order.orderNo}:`, err.message);
@@ -158,6 +158,28 @@ app.post('/orders/pay', (req, res) => {
   } catch (err) {
     console.error('[print-server] Mark order paid failed:', err.message);
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
+// Corrects a still-pending order's items/customer info. A cashier
+// capability (no manager step-up), enforced by refusing anything not
+// still 'pending' — a paid/voided order must go through void instead.
+app.post('/orders/edit', (req, res) => {
+  const { orderNo, cust, lines, total, editedBy, editedByName } = req.body;
+
+  if (!orderNo) {
+    return res.status(400).json({ error: 'orderNo is required' });
+  }
+
+  try {
+    const order = editOrder(orderNo, { cust, lines, total, editedBy, editedByName });
+    logger.info({ orderNo, editedBy, result: 'success' }, 'order edited');
+    res.json({ success: true, order });
+  } catch (err) {
+    console.error('[print-server] Edit order failed:', err.message);
+    logger.error({ orderNo, editedBy, result: 'failure', error: err.message }, 'edit order failed');
+    const status = err.message.includes('not found') ? 404 : err.message.includes('only a pending order') ? 409 : 500;
+    res.status(status).json({ error: err.message });
   }
 });
 

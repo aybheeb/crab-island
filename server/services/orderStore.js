@@ -36,10 +36,9 @@ function itemCountOf(order) {
 
 // Creates a new order in the current open day as "pending" — placed but not
 // yet paid (e.g. a phone-in or walk-in-ahead order the customer will pay for
-// on pickup). Order contents are frozen at creation: cashiers have no way to
-// edit or void it afterward, here or anywhere else (see the TODO in
-// components/Order.jsx) — the only thing that can still happen to it is the
-// one-way "pending" -> "paid" transition via markOrderPaid below.
+// on pickup). While still pending, its contents can be corrected via
+// editOrder below; voidOrder can cancel it (pending or paid). Once paid,
+// only void remains — a settled sale is never silently rewritten.
 export function createOrder({ orderNo, cust, lines, total, ts, cashierId, cashierName, shiftId }) {
   if (!orderNo || !ts) throw new Error('Order missing orderNo/ts');
   const data = loadCurrent();
@@ -96,6 +95,30 @@ export function markOrderPaid(orderNo, { payMethod, changeDue, tenders, total })
 // cashier's UI state after a page refresh.
 export function getOrders() {
   return loadCurrent().orders;
+}
+
+// Corrects a still-pending order's contents (customer info, line items,
+// total) — a cashier capability, same as building the order in the first
+// place. Refuses once paid or voided: a settled sale must go through void,
+// never a silent rewrite. Records who last edited it, mirroring void's
+// audit fields, but as a single "last edit" rather than a full history.
+export function editOrder(orderNo, { cust, lines, total, editedBy, editedByName }) {
+  const data = loadCurrent();
+  const order = data.orders.find((o) => o.orderNo === orderNo);
+  if (!order) throw new Error(`Order ${orderNo} not found`);
+  if (order.status !== 'pending') {
+    throw new Error(`Order ${orderNo} is ${order.status} — only a pending order can be edited`);
+  }
+
+  order.cust = cust;
+  order.lines = lines;
+  order.total = total;
+  order.editedAt = Date.now();
+  order.editedBy = editedBy || null;
+  order.editedByName = editedByName || null;
+
+  saveCurrent(data);
+  return order;
 }
 
 // Voids a paid or pending order — the only other transition an order can

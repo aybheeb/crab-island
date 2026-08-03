@@ -40,12 +40,12 @@ function OrderLine({ line, onQty, onRemove, onEdit }) {
   );
 }
 
-export function OrderSummary({ cust, setCust, lines, total, onQty, onRemove, onEditLine, onAddCustomItem, onPlaceAndPay, onPlaceAsPending, mobileOpen, onCloseMobile, nameError, onClearNameError }) {
+export function OrderSummary({ cust, setCust, lines, total, onQty, onRemove, onEditLine, onAddCustomItem, onPlaceAndPay, onPlaceAsPending, mobileOpen, onCloseMobile, nameError, onClearNameError, editingOrderNo, onSaveEdit, onCancelEdit }) {
   return (
     <aside className={"order-col" + (mobileOpen ? " open" : "")}>
       <div className="order-head">
         <h2>
-          <Icon.bag /> Current Order
+          <Icon.bag /> {editingOrderNo ? `Editing ${editingOrderNo}` : "Current Order"}
           <button
             className="modal-close order-close-mobile"
             style={{ marginLeft: "auto", background: "var(--foam)", color: "var(--ocean-deep)" }}
@@ -105,17 +105,34 @@ export function OrderSummary({ cust, setCust, lines, total, onQty, onRemove, onE
           <span className="tl">Total</span>
           <span className="tv">{money(total)}</span>
         </div>
-        <button className="btn-primary" disabled={lines.length === 0} onClick={onPlaceAndPay}>
-          <Icon.receipt /> Place & Collect Payment
-        </button>
-        <button
-          className="btn-ghost"
-          disabled={lines.length === 0}
-          onClick={onPlaceAsPending}
-          style={{ width: "100%", marginTop: 8 }}
-        >
-          <Icon.clock /> Save as Pending — Pay Later
-        </button>
+        {editingOrderNo ? (
+          <>
+            <button className="btn-primary" disabled={lines.length === 0} onClick={onSaveEdit}>
+              <Icon.check /> Save Changes
+            </button>
+            <button
+              className="btn-ghost"
+              onClick={onCancelEdit}
+              style={{ width: "100%", marginTop: 8 }}
+            >
+              <Icon.x /> Cancel Edit
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="btn-primary" disabled={lines.length === 0} onClick={onPlaceAndPay}>
+              <Icon.receipt /> Place & Collect Payment
+            </button>
+            <button
+              className="btn-ghost"
+              disabled={lines.length === 0}
+              onClick={onPlaceAsPending}
+              style={{ width: "100%", marginTop: 8 }}
+            >
+              <Icon.clock /> Save as Pending — Pay Later
+            </button>
+          </>
+        )}
       </div>
     </aside>
   );
@@ -202,7 +219,7 @@ const PO_FILTERS = [
   { key: 'voided', label: 'Voided' },
 ];
 
-export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetrySave, onVoidOrder }) {
+export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetrySave, onVoidOrder, onEditOrder, editingOrderNo }) {
   const [filter, setFilter] = useState('all');
   const pendingCount = orders.filter((o) => o.status === 'pending').length;
   const visible = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
@@ -248,45 +265,61 @@ export function PlacedOrders({ orders, onClose, onView, onCollectPayment, onRetr
                       <p className="po-void-note">Voided by {o.voidedByName}{o.voidReason ? ` — ${o.voidReason}` : ''}</p>
                     )}
                     {o.saveFailed && <span className="status-badge status-error">Not Saved</span>}
+                    {o.orderNo === editingOrderNo && <span className="status-badge status-pending">Editing…</span>}
                   </div>
                   <div className="po-right">
                     <span className="po-total">{money(o.total)}</span>
-                    <div className="po-actions">
-                      <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
-                      {o.saveFailed && (
-                        <button
-                          className="icon-btn"
-                          onClick={() => onRetrySave(o)}
-                          style={{ borderColor: "var(--red)", color: "var(--red)" }}
-                        >
-                          <Icon.check /> Retry Save
-                        </button>
-                      )}
-                      {o.status === 'pending' && (
-                        <button
-                          className="icon-btn"
-                          onClick={() => onCollectPayment(o)}
-                          style={{ borderColor: "var(--gold)", color: "var(--gold-deep)" }}
-                        >
-                          <Icon.check /> Collect Payment
-                        </button>
-                      )}
-                      {/*
-                        Void requires a manager PIN (step-up) every time, verified
-                        server-side in app/api/orders/void — this button being visible
-                        to a cashier isn't a security boundary, entering a manager's
-                        PIN in the modal it opens is.
-                      */}
-                      {(o.status === 'pending' || o.status === 'paid') && (
-                        <button
-                          className="icon-btn"
-                          onClick={() => onVoidOrder(o)}
-                          style={{ borderColor: "var(--red)", color: "var(--red)" }}
-                        >
-                          <Icon.x /> Void
-                        </button>
-                      )}
-                    </div>
+                    {o.orderNo === editingOrderNo ? (
+                      <div className="po-actions">
+                        <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
+                      </div>
+                    ) : (
+                      <div className="po-actions">
+                        <button className="icon-btn" onClick={() => onView(o)}><Icon.receipt /> Ticket</button>
+                        {o.saveFailed && (
+                          <button
+                            className="icon-btn"
+                            onClick={() => onRetrySave(o)}
+                            style={{ borderColor: "var(--red)", color: "var(--red)" }}
+                          >
+                            <Icon.check /> Retry Save
+                          </button>
+                        )}
+                        {o.status === 'pending' && (
+                          <button
+                            className="icon-btn"
+                            onClick={() => onCollectPayment(o)}
+                            style={{ borderColor: "var(--gold)", color: "var(--gold-deep)" }}
+                          >
+                            <Icon.check /> Collect Payment
+                          </button>
+                        )}
+                        {o.status === 'pending' && !o.saveFailed && (
+                          <button
+                            className="icon-btn"
+                            onClick={() => onEditOrder(o)}
+                            style={{ borderColor: "var(--ocean)", color: "var(--ocean-deep)" }}
+                          >
+                            <Icon.edit /> Edit
+                          </button>
+                        )}
+                        {/*
+                          Void requires a manager PIN (step-up) every time, verified
+                          server-side in app/api/orders/void — this button being visible
+                          to a cashier isn't a security boundary, entering a manager's
+                          PIN in the modal it opens is.
+                        */}
+                        {(o.status === 'pending' || o.status === 'paid') && (
+                          <button
+                            className="icon-btn"
+                            onClick={() => onVoidOrder(o)}
+                            style={{ borderColor: "var(--red)", color: "var(--red)" }}
+                          >
+                            <Icon.x /> Void
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

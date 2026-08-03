@@ -127,6 +127,10 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
   const [lines, setLines] = useState([]);
   const [orders, setOrders] = useState([]);
   const [seq, setSeq] = useState(1);
+  // Set while the live cart (cust/lines above) represents an in-progress
+  // edit of an already-placed pending order, rather than a brand-new one —
+  // see startEditOrder/saveOrderEdit/cancelEditOrder.
+  const [editingOrderNo, setEditingOrderNo] = useState(null);
 
   const [modalItem, setModalItem] = useState(null);
   const [ticket, setTicket] = useState(null);
@@ -254,11 +258,9 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
     flashToast(`${name} added`);
   };
 
-  // Orders are create-only once placed: no edit/void path exists for cashiers.
-  // TODO(roles/phase-2): if a correction/void flow is added, gate it
-  // MANAGER-ONLY — cashiers must never be able to mutate or void a placed
-  // order, even then. See the matching TODO in orderStore.archiveAndResetDay
-  // for the specific case (stale pending orders) that flow is meant to solve.
+  // A cashier can still correct a pending order (see startEditOrder/
+  // saveOrderEdit below) — a settled paid order cannot, and voiding one
+  // requires a manager step-up either way (see VoidOrderModal).
   //
   // buildOrder() only constructs the order object (and reserves its orderNo)
   // — it does not persist anything. "Pay later" orders are persisted right
@@ -317,6 +319,62 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
       });
   };
 
+  // Loads a pending order back into the live cart for correction. Only
+  // pending orders can reach here (see PlacedOrders' Edit button) — paid/
+  // voided orders have no edit path. Warns before discarding an in-progress
+  // unsaved cart rather than silently clobbering it.
+  const startEditOrder = (order) => {
+    if (lines.length > 0 && !window.confirm('Discard the current unsaved order to edit this one?')) {
+      return;
+    }
+    setCust(order.cust);
+    setLines(order.lines);
+    setEditingOrderNo(order.orderNo);
+    setNameError(false);
+    setShowPlaced(false);
+    setMobileOpen(true);
+  };
+
+  const cancelEditOrder = () => {
+    setEditingOrderNo(null);
+    setLines([]);
+    setCust({ name: "", phone: "" });
+    setNameError(false);
+  };
+
+  // Saves the in-progress edit and immediately reprints the kitchen ticket
+  // (marked UPDATED) so the kitchen is never left working from the stale
+  // original — see printKitchenOnly's updated flag.
+  const saveOrderEdit = () => {
+    if (lines.length === 0) return;
+    if (!cust.name.trim()) {
+      setNameError(true);
+      flashToast('Customer name is required', true);
+      return;
+    }
+    setNameError(false);
+    const orderNo = editingOrderNo;
+
+    fetch('/api/orders/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderNo, cust, lines, total }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.success) {
+          flashToast(`Could not save changes: ${d.error}`, true);
+          return;
+        }
+        setOrders((os) => os.map((o) => (o.orderNo === orderNo ? { ...o, cust, lines, total } : o)));
+        setEditingOrderNo(null);
+        setLines([]);
+        setCust({ name: "", phone: "" });
+        printKitchenOnly(d.order, { updated: true });
+      })
+      .catch((err) => flashToast(`Could not save changes: ${err.message}`, true));
+  };
+
   // Prints kitchen ticket + cashier receipt together — used when payment is
   // collected at order time, so both come out immediately.
   const printCombined = (order) => {
@@ -338,18 +396,20 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
   };
 
   // Kitchen ticket only — used when an order is placed as pending (pay
-  // later), so the kitchen can start without waiting on payment.
-  const printKitchenOnly = (order) => {
+  // later), so the kitchen can start without waiting on payment. Also reused
+  // (with updated: true) after saveOrderEdit, so a reprint of a corrected
+  // order is unmistakably marked as replacing the original, not a duplicate.
+  const printKitchenOnly = (order, { updated = false } = {}) => {
     fetch('/api/print-kitchen', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(order),
+      body: JSON.stringify({ ...order, updated }),
     })
       .then((r) => r.json())
       .then((d) => {
         if (d.success) {
           setOrders((os) => os.map((o) => o.orderNo === order.orderNo ? { ...o, ticketPrinted: true } : o));
-          flashToast('Kitchen ticket printed');
+          flashToast(updated ? 'Updated kitchen ticket printed' : 'Kitchen ticket printed');
         } else {
           flashToast(printErrorMessage(d), true);
         }
@@ -559,6 +619,7 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
           onPlaceAndPay={placeAndPay} onPlaceAsPending={placeAsPending}
           mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)}
           nameError={nameError} onClearNameError={() => setNameError(false)}
+          editingOrderNo={editingOrderNo} onSaveEdit={saveOrderEdit} onCancelEdit={cancelEditOrder}
         />
       </div>
       {showCustomItem && (
@@ -607,6 +668,8 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
           onCollectPayment={collectPayment}
           onRetrySave={retrySaveOrder}
           onVoidOrder={(o) => setVoidTarget(o)}
+          onEditOrder={startEditOrder}
+          editingOrderNo={editingOrderNo}
         />
       )}
       {voidTarget && (

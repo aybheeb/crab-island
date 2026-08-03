@@ -80,7 +80,7 @@ function detectProfile(printerNames) {
 
 // ── Kitchen ticket ───────────────────────────────────────────────────────────
 
-function buildKitchenTicketBytes(order, profile) {
+function buildKitchenTicketBytes(order, profile, { updated = false } = {}) {
   const { orderNo, cust, lines, ts, cashierName } = order;
   const stamp = new Date(ts).toLocaleString('en-US', {
     month: '2-digit', day: '2-digit', year: 'numeric',
@@ -89,13 +89,21 @@ function buildKitchenTicketBytes(order, profile) {
 
   const parts = [INIT(), ALIGN_CENTER()];
 
-  // Header
+  // Header — an updated reprint is called out loudly so the kitchen doesn't
+  // mistake it for a duplicate of the original and cook both.
   if (profile.bigText) parts.push(DOUBLE_SIZE());
   parts.push(BOLD_ON());
   parts.push(row('CRAB ISLAND'));
   if (profile.bigText) parts.push(NORMAL_SIZE());
   parts.push(BOLD_OFF());
-  parts.push(row('** KITCHEN TICKET **'));
+  if (updated) {
+    parts.push(BOLD_ON());
+    parts.push(row('*** UPDATED ORDER ***'));
+    parts.push(row('DISCARD PREVIOUS TICKET'));
+    parts.push(BOLD_OFF());
+  } else {
+    parts.push(row('** KITCHEN TICKET **'));
+  }
   parts.push(divider());
 
   // Order number — bold only
@@ -454,11 +462,11 @@ export async function openCashDrawer() {
   sendToFirstAvailable(CASHIER_PRINTER_NAMES, CASHIER_PROFILE.drawerKick(), 'Cash drawer kick');
 }
 
-export async function printKitchenOnly(order) {
+export async function printKitchenOnly(order, opts = {}) {
   sendToFirstAvailable(
     KITCHEN_PRINTER_NAMES,
-    buildKitchenTicketBytes(order, KITCHEN_PROFILE),
-    'Kitchen ticket'
+    buildKitchenTicketBytes(order, KITCHEN_PROFILE, opts),
+    opts.updated ? 'Updated kitchen ticket' : 'Kitchen ticket'
   );
 }
 
