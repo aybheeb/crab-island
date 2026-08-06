@@ -22,6 +22,16 @@ function startOfDay(d) {
   return x;
 }
 
+// `<input type="date">` gives a plain "YYYY-MM-DD" string. `new Date(str)`
+// parses that as UTC midnight, not local midnight — in any timezone west of
+// UTC that's actually the *previous* evening, so every day picked here would
+// silently resolve to the day before it. Splitting and using the multi-arg
+// Date constructor (which is always local-time) avoids that entirely.
+function parseLocalDateInput(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 // Buckets raw (paidAt, total) rows into the manager's own local calendar
 // days across [from, to) — filling in $0 for days with no sales, so the
 // line doesn't silently skip a slow day. Capped by the caller to a sane
@@ -130,7 +140,7 @@ function resolveRange(preset, customFrom, customTo, pickedDay) {
       return { from: todayStart, to: now };
     case 'day': {
       if (!pickedDay) return null;
-      const from = startOfDay(new Date(pickedDay));
+      const from = parseLocalDateInput(pickedDay);
       const to = new Date(from);
       to.setDate(to.getDate() + 1);
       return { from, to };
@@ -153,8 +163,8 @@ function resolveRange(preset, customFrom, customTo, pickedDay) {
       return { from: new Date(0), to: now };
     case 'custom': {
       if (!customFrom || !customTo) return null;
-      const from = startOfDay(new Date(customFrom));
-      const to = startOfDay(new Date(customTo));
+      const from = parseLocalDateInput(customFrom);
+      const to = parseLocalDateInput(customTo);
       to.setDate(to.getDate() + 1);
       return { from, to };
     }

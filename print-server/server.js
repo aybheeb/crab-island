@@ -242,7 +242,28 @@ app.post('/close-day', async (_req, res) => {
     return res.status(500).json({ error: `Print failed, day not closed: ${err.message}` });
   }
 
-  archiveAndResetDay();
+  // archiveAndResetDay() re-checks pendingCount itself and throws if it's
+  // now nonzero — printDailyReport above is a real async printer call, long
+  // enough for another device to create a new pending order in the gap
+  // between the check at the top of this route and this point. Without this
+  // try/catch that throw was unhandled (Express 4 doesn't auto-catch inside
+  // an async handler the way Express 5 does), which could crash the whole
+  // print-server process — and even short of a crash, it left the Z-report
+  // already printed while the day silently stayed open, so the *next*
+  // close-day print would double-count everything since as a fresh "period
+  // start" (this is what produced two Z-reports sharing one period start,
+  // the second a cumulative superset of the first).
+  try {
+    archiveAndResetDay();
+  } catch (err) {
+    console.error('[print-server] Report printed but day NOT reset:', err.message);
+    logger.error({ target: 'cashier', result: 'failure', error: err.message }, 'report printed but archive/reset failed');
+    return res.status(409).json({
+      error: `Report printed, but the day could not be closed: ${err.message}. Handle that order, then press Close Day again to finish.`,
+      printed: true,
+    });
+  }
+
   console.log(`[print-server] Day closed — ${report.orderCount} order(s), ${money(report.grandTotal)} total`);
   res.json({ success: true, report });
 });
