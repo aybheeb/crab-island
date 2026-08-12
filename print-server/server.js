@@ -1,7 +1,7 @@
 import './loadEnv.js';
 import express from 'express';
 import { printTicket, printKitchenOnly, printMerchantReceipt, openCashDrawer, printCustomerReceipt, printDailyReport } from '../server/services/printService.js';
-import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay, voidOrder, editOrder } from '../server/services/orderStore.js';
+import { createOrder, markOrderPaid, getOrders, getCurrentReport, archiveAndResetDay, voidOrder, editOrder, markKitchenPrinted } from '../server/services/orderStore.js';
 import { money } from '../components/data.js';
 import { logger } from './logger.js';
 
@@ -63,6 +63,7 @@ app.post('/print-kitchen', async (req, res) => {
 
   try {
     await printKitchenOnly(order, { updated: !!order.updated });
+    markKitchenPrinted(order.orderNo);
     logger.info({ orderNo: order.orderNo, target: 'kitchen', updated: !!order.updated, result: 'success' }, 'kitchen ticket succeeded');
     res.json({ success: true });
   } catch (err) {

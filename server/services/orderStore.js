@@ -51,6 +51,12 @@ export function createOrder({ orderNo, cust, lines, total, ts, cashierId, cashie
   data.orders.push({
     orderNo, cust, lines, total, ts,
     status: 'pending',
+    // Server-side source of truth for whether the kitchen already has this
+    // order — a client only knows what its own in-memory state remembers,
+    // which another device (or this one after a reload) never saw, so it
+    // can't tell "already printed" from "never printed" on its own. See
+    // components/App.jsx's mergeOrders for the client side of this.
+    kitchenPrinted: false,
     paidAt: null,
     payMethod: null,
     changeDue: null,
@@ -95,6 +101,19 @@ export function markOrderPaid(orderNo, { payMethod, changeDue, tenders, total })
 // cashier's UI state after a page refresh.
 export function getOrders() {
   return loadCurrent().orders;
+}
+
+// Records that the kitchen ticket for this order has been printed at least
+// once. Called after a successful /print-kitchen, regardless of which
+// device/tab triggered it. Silently no-ops if the order isn't found —
+// printing already happened by the time this runs, so a bookkeeping miss
+// here shouldn't turn into a failed print response.
+export function markKitchenPrinted(orderNo) {
+  const data = loadCurrent();
+  const order = data.orders.find((o) => o.orderNo === orderNo);
+  if (!order) return;
+  order.kitchenPrinted = true;
+  saveCurrent(data);
 }
 
 // Corrects a still-pending order's contents (customer info, line items,

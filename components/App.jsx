@@ -50,10 +50,16 @@ let UID = 1;
 // Merges a fresh GET /api/orders response into local state — used both for
 // the initial mount restore and every poll after, so an order placed from
 // another device (e.g. a phone) shows up here without a manual reload.
-// A blind replace would lose two things the server doesn't track:
-//   - ticketPrinted/saveFailed are client-only convenience flags; resetting
-//     ticketPrinted on every poll would make the payment flow think a
-//     kitchen ticket was never printed and print a duplicate.
+// A blind replace would lose things the server doesn't track, or used to:
+//   - saveFailed is a client-only convenience flag with no server equivalent.
+//   - ticketPrinted mirrors the server's own kitchenPrinted once this device
+//     already knows about an order (avoids a moment of false "unprinted" if
+//     this poll response is slightly stale about it), but for an order
+//     that's new to this device — placed elsewhere, or this tab just
+//     reloaded — there's no local guess to fall back to, so the server's
+//     kitchenPrinted is the only thing that can answer "was this already
+//     sent to the kitchen," and skipping it silently defaulted to false,
+//     causing an unwanted kitchen reprint at payment time.
 //   - an order this device just placed optimistically (setOrders ran before
 //     its POST resolved) might not be in the server's response yet — drop
 //     it and it would flicker out of the list until the POST catches up.
@@ -66,7 +72,7 @@ function mergeOrders(prevOrders, serverOrders) {
     return { ...fromServer, ticketPrinted: prev.ticketPrinted, saveFailed: prev.saveFailed };
   });
   for (const fresh of remaining.values()) {
-    merged.push({ ...fresh, ticketPrinted: fresh.status === 'paid', saveFailed: false });
+    merged.push({ ...fresh, ticketPrinted: fresh.status === 'paid' || !!fresh.kitchenPrinted, saveFailed: false });
   }
   return merged;
 }
