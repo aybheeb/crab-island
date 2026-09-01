@@ -8,6 +8,7 @@ import { Icon, MenuPanel, CustomModal, getCategoryMeta } from './Menu';
 import { OrderSummary, TicketModal, PlacedOrders } from './Order';
 import VoidOrderModal from './VoidOrderModal';
 import CustomItemModal from './CustomItemModal';
+import OpenDrawerModal from './OpenDrawerModal';
 import PaymentModal from './PaymentModal';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSlider, TweakToggle } from './TweaksPanel';
 
@@ -153,6 +154,7 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
   const [showPlaced, setShowPlaced] = useState(false);
   const [voidTarget, setVoidTarget] = useState(null);
   const [showCustomItem, setShowCustomItem] = useState(false);
+  const [showOpenDrawer, setShowOpenDrawer] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [toast, setToast] = useState(null);
@@ -582,7 +584,7 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
                 </button>
               </div>
             )}
-            <button className="hdr-btn" onClick={openDrawer}>
+            <button className="hdr-btn" onClick={() => setShowOpenDrawer(true)}>
               Open Drawer
             </button>
             <button className="hdr-btn" onClick={() => setShowPlaced(true)}>
@@ -635,6 +637,12 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
       </div>
       {showCustomItem && (
         <CustomItemModal onClose={() => setShowCustomItem(false)} onAdd={addCustomItem} />
+      )}
+      {showOpenDrawer && (
+        <OpenDrawerModal
+          onClose={() => setShowOpenDrawer(false)}
+          onVerified={() => { setShowOpenDrawer(false); openDrawer(); }}
+        />
       )}
 
       <div className="mobile-bar">
