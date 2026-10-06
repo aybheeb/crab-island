@@ -179,7 +179,10 @@ export default function App({ staff, menu: initialMenu, categories: initialCateg
             const merged = mergeOrders(prev, d.orders);
             const maxNo = merged.reduce((m, o) => Math.max(m, parseInt(String(o.orderNo).replace('#', ''), 10) || 0), 0);
             setSeq((s) => Math.max(s, maxNo + 1));
-            return merged;
+            // Most polls change nothing — keep the old array so React skips
+            // re-rendering the whole app (and whatever modal is open) every
+            // ORDER_POLL_MS while the cashier is mid-tap.
+            return JSON.stringify(merged) === JSON.stringify(prev) ? prev : merged;
           });
         })
         .catch((err) => flashToast(`Could not sync orders: ${err.message}`, true));

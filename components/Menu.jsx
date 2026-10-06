@@ -156,6 +156,24 @@ export const MenuPanel = forwardRef(function MenuPanel({ menu, categories, onPic
   );
 });
 
+// Must stay at module level, never declared inside CustomModal: a component
+// defined in a render body is a brand-new type every render, so React
+// remounts its buttons each time the modal re-renders (the 10s orders poll,
+// a toast...). A tap that straddles that remount lands on a detached button
+// and is silently dropped — which is how a "Deep Fried" tap could leave the
+// line on the default "Steamed" and send it to the kitchen that way.
+function Seg({ options, value, onChange, variant }) {
+  return (
+    <div className={"seg" + (variant ? " " + variant : "")}>
+      {options.map((o) => (
+        <button key={o} className={value === o ? "on" : ""} onClick={() => onChange(o)} type="button">
+          {value === o && <Icon.check className="ck" />}{o}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
   const [c, setC] = useState(initial || defaultCustom(item));
   const set = (patch) => setC((prev) => ({ ...prev, ...patch }));
@@ -185,16 +203,6 @@ export function CustomModal({ item, initial, editingLineId, onClose, onSave }) {
   };
 
   const setCooking = (v) => set({ cooking: v, butter: butterAcross(c.noCombo, v) });
-
-  const Seg = ({ options, value, onChange, variant }) => (
-    <div className={"seg" + (variant ? " " + variant : "")}>
-      {options.map((o) => (
-        <button key={o} className={value === o ? "on" : ""} onClick={() => onChange(o)} type="button">
-          {value === o && <Icon.check className="ck" />}{o}
-        </button>
-      ))}
-    </div>
-  );
 
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
